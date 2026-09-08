@@ -1,0 +1,42 @@
+# Backend
+/backend/vendor/
+/backend/node_modules/
+/backend/.env
+/backend/.env.backup
+/backend/.env.production
+/backend/storage/*.key
+/backend/bootstrap/cache/
+/backend/storage/framework/cache/*
+/backend/storage/framework/sessions/*
+/backend/storage/framework/views/*
+/backend/storage/logs/*
+/backend/.phpunit.result.cache
+/backend/database/database.sqlite
+
+# Frontend
+/chatbot-universidad/node_modules/
+/chatbot-universidad/dist/
+/chatbot-universidad/.env
+/chatbot-universidad/.env.local
+/chatbot-universidad/.env.*.local
+
+# Old files
+/chat-backend/
+/proyecto de la tesis/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Misc
+*.log
+*.sql
+*.sqlite
+*.zip

@@ -1,0 +1,52 @@
+.quick-replies {
+  padding: 0 12px 12px;
+  animation: fadeInUp 0.4s ease;
+}
+
+.quick-replies-title {
+  color: #94a3b8;
+  font-size: 0.75rem;
+  margin-bottom: 8px;
+  text-align: center;
+}
+
+.quick-replies-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+
+@media (min-width: 768px) {
+  .quick-replies-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.quick-reply-btn {
+  background: #1f2937;
+  color: #e2e8f0;
+  border: 1px solid #334155;
+  border-radius: 12px;
+  padding: 10px 12px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: left;
+}
+
+@media (min-width: 768px) {
+  .quick-reply-btn {
+    font-size: 0.85rem;
+    padding: 12px 14px;
+  }
+}
+
+.quick-reply-btn:hover {
+  background: #334155;
+  border-color: #64748b;
+  transform: translateY(-1px);
+}
+
+.quick-reply-btn:active {
+  transform: translateY(0);
+}

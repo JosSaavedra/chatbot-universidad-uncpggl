@@ -24,8 +24,9 @@ RUN composer dump-autoload --optimize || { echo '=== php -m ==='; php -m; echo '
 
 RUN touch database/database.sqlite \
     && mkdir -p storage/framework/cache storage/framework/sessions storage/framework/views storage/framework/testing storage/logs \
-    && chmod -R 777 storage bootstrap/cache database
+    && chmod -R 777 storage bootstrap/cache bootstrap/database database 2>/dev/null || true
 
 EXPOSE 10000
 
 CMD ["sh", "-c", "php artisan migrate --force && php artisan db:seed --force && exec php artisan serve --host=0.0.0.0 --port=${PORT:-10000}"]
+

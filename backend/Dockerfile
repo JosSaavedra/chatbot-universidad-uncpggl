@@ -18,15 +18,16 @@ WORKDIR /var/www/html
 
 COPY . .
 
+RUN mkdir -p bootstrap/cache storage/framework/cache storage/framework/sessions storage/framework/views storage/framework/testing storage/logs \
+    && chmod -R 777 bootstrap/cache storage
+
 RUN composer install --no-dev --no-scripts --no-interaction --prefer-dist
 
 RUN composer dump-autoload --optimize || { echo '=== php -m ==='; php -m; echo '=== artisan package:discover -vvv ==='; php artisan package:discover --ansi -vvv; exit 1; }
 
 RUN touch database/database.sqlite \
-    && mkdir -p storage/framework/cache storage/framework/sessions storage/framework/views storage/framework/testing storage/logs \
-    && chmod -R 777 storage bootstrap/cache bootstrap/database database 2>/dev/null || true
+    && chmod -R 777 database
 
 EXPOSE 10000
 
-CMD ["sh", "-c", "php artisan migrate --force && php artisan db:seed --force && exec php artisan serve --host=0.0.0.0 --port=${PORT:-10000}"]
-
+CMD ["sh", "-c", "php artisan migrate --force && php artisan db:seed --force && exec php artisan serve --host=0.0.0.0 --port="]

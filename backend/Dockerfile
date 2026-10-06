@@ -1,11 +1,14 @@
 FROM php:8.4-cli
 
+ENV COMPOSER_ALLOW_SUPERUSER=1
+
 RUN apt-get update && apt-get install -y --no-install-recommends \
         git \
         unzip \
         libonig-dev \
         libzip-dev \
-    && docker-php-ext-install mbstring zip \
+        libcurl4-openssl-dev \
+    && docker-php-ext-install mbstring zip curl pcntl \
     && (php -m | grep -qi pdo_sqlite || (apt-get install -y libsqlite3-dev && docker-php-ext-install pdo_sqlite)) \
     && rm -rf /var/lib/apt/lists/*
 
@@ -15,8 +18,11 @@ WORKDIR /var/www/html
 
 COPY . .
 
-RUN composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader \
-    && touch database/database.sqlite \
+RUN composer install --no-dev --no-scripts --no-interaction --prefer-dist
+
+RUN composer dump-autoload --optimize || { echo '=== php -m ==='; php -m; echo '=== artisan package:discover -vvv ==='; php artisan package:discover --ansi -vvv; exit 1; }
+
+RUN touch database/database.sqlite \
     && mkdir -p storage/framework/cache storage/framework/sessions storage/framework/views storage/framework/testing storage/logs \
     && chmod -R 777 storage bootstrap/cache database
 

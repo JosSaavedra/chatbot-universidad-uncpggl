@@ -10,6 +10,10 @@ class DatabaseSeeder extends Seeder
 {
     public function run(): void
     {
+        if (DB::table('users')->exists()) {
+            return;
+        }
+
         $careers = [
             ['name' => 'Medicina y Cirugía',              'code' => 'MED-001', 'faculty' => 'Ciencias de la Salud',                  'duration_years' => 6, 'enrollment_fee' => 800.00, 'monthly_fee' => 500.00, 'description' => 'Formación de médicos generales.', 'is_active' => true],
             ['name' => 'Enfermería',                       'code' => 'ENF-001', 'faculty' => 'Ciencias de la Salud',                  'duration_years' => 4, 'enrollment_fee' => 600.00, 'monthly_fee' => 350.00, 'description' => 'Cuidado integral de la salud.', 'is_active' => true],

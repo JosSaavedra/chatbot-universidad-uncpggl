@@ -4,9 +4,9 @@ const quickReplies = [
   { label: "📋 Ver carreras", text: "¿Qué carreras ofrece la universidad?" },
   { label: "💰 Precios", text: "¿Cuánto cuesta la inscripción y mensualidad?" },
   { label: "📅 Horarios", text: "¿Cuáles son los horarios generales?" },
-  { label: "📝 Mis notas", text: "Quiero ver mis notas, mi carnet es 2025-ISI-002" },
-  { label: "🎓 Becas", text: "¿Qué becas ofrece la universidad?" },
-  { label: "📆 Próximos exámenes", text: "¿Cuándo son los próximos exámenes?" },
+  { label: "📆 Calendario", text: "¿Cuál es el calendario académico y las fechas de inscripción?" },
+  { label: "🏛️ Facultades", text: "¿Qué facultades tiene la universidad?" },
+  { label: "🎉 Eventos", text: "¿Cuáles son los próximos eventos universitarios?" },
 ];
 
 function QuickReplies({ onSelect, visible }) {

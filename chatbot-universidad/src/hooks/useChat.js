@@ -70,12 +70,18 @@ export const useChat = () => {
       setMessages((prev) => [...prev, botMessage]);
     } catch (error) {
       console.error("Chat Error:", error);
+      let content = "No se pudo conectar con el servidor. Por favor, revisa tu conexión.";
+      if (error?.status === 429) {
+        content = "Has enviado demasiadas consultas seguidas. Espera unos segundos e inténtalo de nuevo.";
+      } else if (error?.status && error.status >= 500) {
+        content = "El servidor está teniendo problemas en este momento. Inténtalo de nuevo en unos segundos.";
+      }
       setMessages((prev) => [
         ...prev,
         {
           id: `error-${Date.now()}`,
           role: "bot",
-          content: "No se pudo conectar con el servidor. Por favor, revisa tu conexión.",
+          content,
           time: formatTime(),
         },
       ]);

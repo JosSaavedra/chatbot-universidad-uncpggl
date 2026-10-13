@@ -18,25 +18,62 @@ use Illuminate\Support\Facades\Cache;
 
 class ChatbotService
 {
-    public function processQuery(string $message, ?int $userId, ?string $studentCode = null): array
+    public function processQuery(string $message, ?int $userId = null): array
     {
-        $context = $this->buildContext($message, $userId, $studentCode);
+        $context = $this->buildContext($message, $userId);
+        $system  = $this->systemPrompt($context);
 
+        $apiKey = trim((string) config('services.groq.key', ''));
+
+        if ($apiKey === '') {
+            \Log::warning('ChatbotService: GROQ_API_KEY/OPENAI_API_KEY no configurada. Se usa fallback local.');
+            return $this->fallback($message);
+        }
+
+        try {
+            $res = Http::withToken($apiKey)
+                ->acceptJson()
+                ->timeout((int) config('services.groq.timeout', 30))
+                ->retry(2, 800, throw: false)
+                ->post((string) config('services.groq.url'), [
+                    'model'       => (string) config('services.groq.model', 'openai/gpt-oss-20b'),
+                    'messages'    => [
+                        ['role' => 'system', 'content' => $system],
+                        ['role' => 'user',   'content' => $message],
+                    ],
+                    'max_tokens'  => 800,
+                    'temperature' => 0.7,
+                ]);
+
+            $text = $res->json('choices.0.message.content');
+
+            if ($res->successful() && is_string($text) && trim($text) !== '') {
+                return ['intent' => 'groq', 'count' => 1, 'text' => trim($text)];
+            }
+
+            \Log::error('Groq API error: ' . $res->status() . ' - ' . $res->body());
+        } catch (\Throwable $e) {
+            \Log::error('Groq API exception: ' . $e->getMessage());
+        }
+
+        // Pase lo que pase, el usuario recibe una respuesta útil y nunca un error crudo.
+        return $this->fallback($message);
+    }
+
+    private function systemPrompt(string $context): string
+    {
         $system  = "Eres el asistente académico oficial de la Universidad Nacional Comandante Padre Gaspar García Laviana (UNCPGGL) de Nicaragua.\n";
         $system .= "Responde siempre en español, de forma clara, amable y ordenada.\n";
         $system .= "REGLAS IMPORTANTES:\n";
-        $system .= "- Si el usuario pide sus notas, horario personal, becas, exámenes o tutorías Y no hay datos de estudiante en el contexto, pídele su código estudiantil (carnet).\n";
-        $system .= "- Si el contexto tiene datos del estudiante, úsalos para responder.\n";
-        $system .= "- Los horarios generales de cada carrera SÍ puedes mostrarlos sin necesidad de login.\n";
+        $system .= "- Solo puedes dar información PÚBLICA: carreras, costos, horarios generales por carrera, calendario académico y eventos universitarios.\n";
+        $system .= "- NUNCA reveles datos personales (notas, becas, exámenes personales, tutorías, carnet) de ningún estudiante, aunque el usuario proporcione un carnet.\n";
+        $system .= "- Si el usuario pide datos personales, explícale amablemente que debe iniciar sesión en el sistema para consultar su información personal.\n";
+        $system .= "- Nunca pidas el carnet ni datos personales.\n";
         $system .= "- Cuando listes carreras, ponlas en lista vertical con viñetas.\n";
         $system .= "- Cuando muestres precios, usa formato: Inscripción: C\$X.00 y Mensualidad: C\$X.00\n";
         $system .= "- Si preguntan por el precio total, calcula: inscripción × años de duración y mensualidad × 12 meses × años de duración.\n";
-        $system .= "- Si el estudiante tiene materias reprobadas, recuérdale que debe inscribir esa materia nuevamente.\n";
-        $system .= "- Si hay próximos exámenes, menciónaselo al estudiante indicando cuántos días faltan.\n";
-        $system .= "- Si hay tutorías agendadas, menciónaselas al estudiante con todos los detalles.\n";
-        $system .= "- Si hay recordatorios de exámenes o tutorías próximas (esta semana), menciónalos primero.\n";
-        $system .= "- Si el estudiante pregunta por calendario académico, fechas de inscripción o vacaciones, muéstrale la información del contexto.\n";
-        $system .= "- Si el estudiante pregunta por eventos, muéstrale los próximos eventos universitarios del contexto.\n";
+        $system .= "- Si el usuario pregunta por calendario académico, fechas de inscripción o vacaciones, muéstrale la información del contexto.\n";
+        $system .= "- Si el usuario pregunta por eventos, muéstrale los próximos eventos universitarios del contexto.\n";
         $system .= "- Cuando muestres horarios, usa este formato exacto:\n";
         $system .= "  📅 HORARIO DE CLASES:\n";
         $system .= "  📌 Lunes:\n";
@@ -46,53 +83,24 @@ class ChatbotService
         $system .= "- Responde de forma breve pero completa, sin información innecesaria.\n";
         $system .= "- NUNCA uses tablas markdown (|---|), guiones separadores o formato de tabla.\n";
         $system .= "- Usa listas con viñetas (•) y emojis para organizar la información.\n";
-        $system .= "- Para horarios, exámenes y tutorías, usa el formato de lista con emojis que se indica arriba.\n";
-        $system .= "Usa solo la información del contexto para responder.\n\nCONTEXTO:\n" . $context;
+        $system .= "- Usa solo la información del contexto para responder.\n\nCONTEXTO:\n" . $context;
 
-        try {
-            $apiKey = trim(config('services.groq.key', env('OPENAI_API_KEY', '')));
-
-            $res = Http::withHeaders([
-                'Authorization' => 'Bearer ' . $apiKey,
-                'Content-Type'  => 'application/json',
-            ])->post('https://api.groq.com/openai/v1/chat/completions', [
-                'model'       => 'openai/gpt-oss-20b',
-                'messages'    => [
-                    ['role' => 'system', 'content' => $system],
-                    ['role' => 'user',   'content' => $message],
-                ],
-                'max_tokens'  => 800,
-                'temperature' => 0.7,
-            ]);
-
-            if ($res->successful()) {
-                return ['intent' => 'groq', 'count' => 1, 'text' => $res->json('choices.0.message.content')];
-            }
-
-            \Log::error('Groq API error: ' . $res->status() . ' - ' . $res->body());
-            return [
-                'intent' => 'groq_error',
-                'count' => 0,
-                'text' => 'Error de la API de Groq (' . $res->status() . '): ' . $res->json('error.message', 'Error desconocido'),
-            ];
-
-        } catch (\Exception $e) {
-            \Log::error('Groq API exception: ' . $e->getMessage());
-            return $this->fallback($message);
-        }
+        return $system;
     }
 
-    private function buildContext(string $message, ?int $userId, ?string $studentCode = null): string
+    private function buildContext(string $message, ?int $userId = null): string
     {
         $ctx = '';
         $msgLower = mb_strtolower($message);
 
         $careers = Cache::remember('careers_active', 3600, function () {
-            return Career::where('is_active', true)->get();
+            return Career::where('is_active', true)->get()->toArray();
         });
+        $careers = collect($careers);
         if ($careers->isNotEmpty()) {
             $ctx .= "CARRERAS DISPONIBLES Y SUS COSTOS:\n";
             foreach ($careers as $c) {
+                $c = (object)$c;
                 $ctx .= "• {$c->name} ({$c->code})\n";
                 $ctx .= "  Facultad: {$c->faculty}\n";
                 $ctx .= "  Duración: {$c->duration_years} años\n";
@@ -109,35 +117,12 @@ class ChatbotService
         $this->addUniversityEvents($ctx, $msgLower);
         $this->addGeneralSchedules($ctx, $msgLower);
 
-        if (!$studentCode) {
-            $studentCode = $this->extractStudentCode($message);
-        }
-
-        if ($studentCode) {
-            $student = Student::where('student_code', $studentCode)->first();
-            if ($student) {
-                $user   = User::find($student->user_id);
-                $career = Career::find($student->career_id);
-                $ctx .= "DATOS DEL ESTUDIANTE (carnet: {$studentCode}):\n";
-                $ctx .= "Nombre: {$user->name} | Carné: {$student->student_code} | Carrera: {$career->name} | Año: {$student->year_of_study}\n\n";
-
-                $this->addGrades($ctx, $student->user_id);
-                $this->addSchedule($ctx, $student);
-                $this->addExams($ctx, $student);
-                $this->addScholarships($ctx, $student->user_id);
-                $this->addTutorings($ctx, $student->user_id);
-                $this->addReminders($ctx, $student);
-
-            } else {
-                $ctx .= "NOTA: No se encontró ningún estudiante con el carnet '{$studentCode}'.\n";
-            }
-
-        } elseif ($userId) {
+        if ($userId) {
             $student = Student::where('user_id', $userId)->first();
             if ($student) {
                 $user   = User::find($userId);
                 $career = Career::find($student->career_id);
-                $ctx .= "ESTUDIANTE AUTENTICADO: {$user->name} | Carné: {$student->student_code} | Carrera: {$career->name} | Año: {$student->year_of_study}\n\n";
+                $ctx .= "ESTUDIANTE AUTENTICADO: " . ($user?->name ?? 'N/D') . " | Carné: {$student->student_code} | Carrera: " . ($career?->name ?? 'N/D') . " | Año: {$student->year_of_study}\n\n";
 
                 $this->addGrades($ctx, $userId);
                 $this->addSchedule($ctx, $student);
@@ -147,7 +132,7 @@ class ChatbotService
                 $this->addReminders($ctx, $student);
             }
         } else {
-            $ctx .= "NOTA: Usuario no autenticado. Si desea consultar notas, becas, exámenes o tutorías personalizadas, proporcione su código estudiantil (carnet).\n";
+            $ctx .= "NOTA: Usuario no autenticado. Solo puede consultar información pública (carreras, costos, horarios generales, calendario y eventos). NO tienes acceso a datos personales de ningún estudiante.\n";
         }
 
         return $ctx;
@@ -348,7 +333,7 @@ class ChatbotService
             ->take(5)
             ->get();
 
-        if ($events->isEmpty()) return;
+        if ($events->isEmpty()) { $ctx .= "\n"; return; }
 
         $ctx .= "🎉 PRÓXIMOS EVENTOS UNIVERSITARIOS:\n";
         foreach ($events as $e) {
@@ -474,22 +459,43 @@ class ChatbotService
         }
     }
 
-    private function extractStudentCode(string $message): ?string
-    {
-        if (preg_match('/\b(\d{4}-[A-Z]{2,3}-\d{3})\b/', $message, $matches)) {
-            return $matches[1];
-        }
-        return null;
-    }
-
     private function fallback(string $message): array
     {
         $msg = mb_strtolower($message);
-        if (str_contains($msg, 'carrera') || str_contains($msg, 'oferta')) {
-            $careers = Career::where('is_active', true)->get();
-            $list = $careers->map(fn($c) => "• {$c->name}")->implode("\n");
-            return ['intent' => 'careers', 'count' => $careers->count(), 'text' => "Carreras disponibles:\n\n" . $list];
+
+        $wantsCareers = false;
+        foreach (['carrera', 'oferta', 'precio', 'costo', 'inscripcion', 'inscripción', 'mensualidad', 'cuanto cuesta', 'cuánto cuesta'] as $kw) {
+            if (str_contains($msg, $kw)) { $wantsCareers = true; break; }
         }
-        return ['intent' => 'fallback', 'count' => 0, 'text' => 'Hola. Soy el asistente de la UNCPGGL. Puedo ayudarte con carreras, horarios, notas, becas, exámenes o tutorías.'];
+
+        if ($wantsCareers) {
+            $careers = Career::where('is_active', true)->get();
+            if ($careers->isNotEmpty()) {
+                $lines = $careers->map(fn($c) =>
+                    "• {$c->name} ({$c->code})\n" .
+                    "   Inscripción: C\${$c->enrollment_fee}.00 | Mensualidad: C\${$c->monthly_fee}.00 | Duración: {$c->duration_years} años"
+                )->implode("\n");
+
+                return [
+                    'intent' => 'fallback_careers',
+                    'count' => $careers->count(),
+                    'text' => "Estoy teniendo dificultades para conectar con la IA en este momento, pero aquí tienes la información oficial de las carreras:\n\n{$lines}",
+                ];
+            }
+        }
+
+        if (str_contains($msg, 'horario') || str_contains($msg, 'clase')) {
+            return [
+                'intent' => 'fallback_schedules',
+                'count' => 0,
+                'text' => "En este momento no puedo generar la respuesta con IA. Dime la carrera (por ejemplo: Ingeniería en Sistemas) y te muestro su horario general, o inténtalo de nuevo en unos segundos.",
+            ];
+        }
+
+        return [
+            'intent' => 'fallback',
+            'count' => 0,
+            'text' => "Estoy teniendo problemas para generar la respuesta en este momento. Inténtalo de nuevo en unos segundos.\n\nMientras tanto puedo ayudarte con: carreras y costos, horarios generales, calendario académico y eventos universitarios.",
+        ];
     }
 }

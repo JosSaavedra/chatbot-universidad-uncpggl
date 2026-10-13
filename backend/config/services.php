@@ -17,4 +17,12 @@ return [
             'channel' => env('SLACK_BOT_USER_DEFAULT_CHANNEL'),
         ],
     ],
+
+    'groq' => [
+        // Se acepta GROQ_API_KEY y, por compatibilidad con despliegues previos, OPENAI_API_KEY.
+        'key' => env('GROQ_API_KEY') ?: env('OPENAI_API_KEY'),
+        'url' => env('GROQ_URL', 'https://api.groq.com/openai/v1/chat/completions'),
+        'model' => env('GROQ_MODEL', 'openai/gpt-oss-20b'),
+        'timeout' => (int) env('GROQ_TIMEOUT', 30),
+    ],
 ];

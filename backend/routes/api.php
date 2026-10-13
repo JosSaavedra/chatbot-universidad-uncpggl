@@ -10,18 +10,18 @@ use App\Http\Controllers\Api\ScheduleController;
 use App\Http\Controllers\Api\ScholarshipController;
 use App\Http\Controllers\Api\TutoringController;
 
-Route::post('/login', [AuthController::class, 'login']);
-Route::post('/register', [AuthController::class, 'register']);
+Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:10,1');
+Route::post('/register', [AuthController::class, 'register'])->middleware('throttle:10,1');
 
 Route::get('/careers', [CareerController::class, 'index']);
 
-Route::post('/chat', [ChatController::class, 'send']);
-Route::get('/chat/history', [ChatController::class, 'getHistory']);
+Route::post('/chat', [ChatController::class, 'send'])->middleware('throttle:60,1');
+Route::get('/chat/history', [ChatController::class, 'getHistory'])->middleware('throttle:60,1');
 
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/user', fn(\Illuminate\Http\Request $req) => $req->user());
     Route::post('/logout', [AuthController::class, 'logout']);
-    Route::post('/chat/auth', [ChatController::class, 'sendAuth']);
+    Route::post('/chat/auth', [ChatController::class, 'sendAuth'])->middleware('throttle:60,1');
     Route::get('/conversations', [ConversationController::class, 'index']);
     Route::get('/conversations/{id}', [ConversationController::class, 'show']);
     Route::delete('/conversations/{id}', [ConversationController::class, 'destroy']);

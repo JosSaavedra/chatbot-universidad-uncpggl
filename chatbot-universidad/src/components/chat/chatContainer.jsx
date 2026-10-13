@@ -13,7 +13,6 @@ function ChatContainer() {
   const chatInputRef = useRef(null);
   const [userScrolledUp, setUserScrolledUp] = useState(false);
   const [showQuickReplies, setShowQuickReplies] = useState(true);
-  const [animateLast, setAnimateLast] = useState(false);
 
   const handleScroll = () => {
     const container = messagesContainerRef.current;
@@ -29,19 +28,15 @@ function ChatContainer() {
   }, [messages, userScrolledUp]);
 
   useEffect(() => {
-    if (!loading && messages.length > 0) {
-      const lastMsg = messages[messages.length - 1];
-      if (lastMsg.role === "bot") {
-        setAnimateLast(true);
-      }
-    }
-  }, [loading, messages]);
-
-  useEffect(() => {
     if (!loading) {
       chatInputRef.current?.focus();
     }
   }, [loading]);
+
+  // Solo el último mensaje del bot se anima con efecto máquina, y únicamente
+  // cuando ya terminó de cargar (loading = false). Cada burbuja se anima una sola vez.
+  const lastMessage = messages[messages.length - 1];
+  const animateLastId = !loading && lastMessage?.role === "bot" ? lastMessage.id : null;
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -55,13 +50,11 @@ function ChatContainer() {
 
   const onSend = useCallback(async (text) => {
     setShowQuickReplies(false);
-    setAnimateLast(false);
     await handleSend(text);
   }, [handleSend]);
 
   const onQuickReply = useCallback(async (text) => {
     setShowQuickReplies(false);
-    setAnimateLast(false);
     await handleSend(text);
   }, [handleSend]);
 
@@ -79,11 +72,11 @@ function ChatContainer() {
         ref={messagesContainerRef}
         onScroll={handleScroll}
       >
-        {messages.map((msg, index) => (
+        {messages.map((msg) => (
           <MessageBubble
             key={msg.id}
             message={msg}
-            animate={animateLast && index === messages.length - 1}
+            animate={msg.id === animateLastId}
           />
         ))}
 

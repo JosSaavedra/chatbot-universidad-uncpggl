@@ -13,14 +13,6 @@ class ChatController extends Controller
 {
     public function __construct(protected ChatbotService $chatbot) {}
 
-    private function extractStudentCode(string $message): ?string
-    {
-        if (preg_match('/\b(\d{4}-[A-Z]{2,3}-\d{3})\b/', $message, $matches)) {
-            return $matches[1];
-        }
-        return null;
-    }
-
     public function send(Request $request): JsonResponse
     {
         $request->validate([
@@ -33,12 +25,6 @@ class ChatController extends Controller
             ['user_id' => null, 'title' => substr($request->input('message'), 0, 50)]
         );
 
-        $newCarnet = $this->extractStudentCode($request->input('message'));
-        if ($newCarnet) {
-            $conversation->update(['student_code' => $newCarnet]);
-        }
-        $studentCode = $newCarnet ?? $conversation->student_code;
-
         Message::create([
             'conversation_id' => $conversation->id,
             'user_id'         => null,
@@ -46,10 +32,10 @@ class ChatController extends Controller
             'content'         => $request->input('message'),
         ]);
 
+        // Endpoint público: sin usuario autenticado solo se responde información pública.
         $result = $this->chatbot->processQuery(
             message: $request->input('message'),
             userId: null,
-            studentCode: $studentCode
         );
 
         Message::create([
@@ -97,12 +83,6 @@ class ChatController extends Controller
             ['user_id' => $request->user()->id, 'title' => substr($request->input('message'), 0, 50)]
         );
 
-        $newCarnet = $this->extractStudentCode($request->input('message'));
-        if ($newCarnet) {
-            $conversation->update(['student_code' => $newCarnet]);
-        }
-        $studentCode = $newCarnet ?? $conversation->student_code;
-
         Message::create([
             'conversation_id' => $conversation->id,
             'user_id'         => $request->user()->id,
@@ -110,10 +90,10 @@ class ChatController extends Controller
             'content'         => $request->input('message'),
         ]);
 
+        // El usuario autenticado solo accede a SU propia información.
         $result = $this->chatbot->processQuery(
             message: $request->input('message'),
             userId: $request->user()->id,
-            studentCode: $studentCode
         );
 
         Message::create([

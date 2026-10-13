@@ -3,7 +3,7 @@ const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000/api";
 const getSessionId = () => {
   let sessionId = localStorage.getItem("chat_session_id");
   if (!sessionId) {
-    sessionId = "sess_" + Math.random().toString(36).substr(2, 9) + "_" + Date.now();
+    sessionId = "sess_" + Math.random().toString(36).substring(2, 11) + "_" + Date.now();
     localStorage.setItem("chat_session_id", sessionId);
   }
   return sessionId;
@@ -24,7 +24,9 @@ export const sendMessage = async (message) => {
 
   if (!response.ok) {
     const err = await response.json().catch(() => ({}));
-    throw new Error(err?.message || `Error ${response.status}`);
+    const error = new Error(err?.message || `Error ${response.status}`);
+    error.status = response.status;
+    throw error;
   }
 
   return response.json();

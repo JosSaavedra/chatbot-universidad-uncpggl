@@ -1,10 +1,17 @@
+# Secretos: nunca copiar el .env real a la imagen
 .env
 .env.*
+!.env.example
+
+# Dependencias (se instalan dentro del contenedor)
 vendor
 node_modules
+
+# Control de versiones / tooling
+.git
+.gitattributes
+.vercel
+
+# Temporales y backups
 storage/logs/*
-storage/framework/cache/*
-storage/framework/sessions/*
-storage/framework/views/*
-database/*.sqlite*
-.phpunit.result.cache
+Dockerfile.bak

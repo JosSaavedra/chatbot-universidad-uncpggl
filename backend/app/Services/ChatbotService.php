@@ -38,6 +38,14 @@ class ChatbotService
      */
     public function processQuery(string $message, ?int $userId = null, array $history = []): array
     {
+        // PRIORIDAD 0: si el usuario escribe su carné, se responde con un saludo
+        // generado por Laravel (nombre desde la base de datos). No se consulta a
+        // la IA y no se muestran carreras, precios, horarios ni pagos.
+        $carnet = $this->carnetReply($message);
+        if ($carnet !== null) {
+            return $carnet;
+        }
+
         $context = $this->buildContext($message, $userId);
         $system  = $this->systemPrompt($context);
 
@@ -72,7 +80,7 @@ class ChatbotService
             $text = $res->json('choices.0.message.content');
 
             if ($res->successful() && is_string($text) && trim($text) !== '') {
-                return ['intent' => 'groq', 'count' => 1, 'text' => trim($text)];
+                return ['intent' => 'groq', 'count' => 1, 'text' => $this->sanitizeModelText($text)];
             }
 
             \Log::error('Groq API error: ' . $res->status() . ' - ' . $res->body());
@@ -82,6 +90,31 @@ class ChatbotService
 
         // Pase lo que pase, el usuario recibe una respuesta útil y nunca un error crudo.
         return $this->fallback($message);
+    }
+
+    /**
+     * Limpia el texto generado por la IA: elimina etiquetas HTML/JSX que el
+     * modelo pudiera colar (p. ej. "<button>Ver información de pagos</button>")
+     * conservando su texto interno, sin tocar Markdown, listas, cifras,
+     * nombres de carreras ni enlaces legítimos.
+     */
+    private function sanitizeModelText(string $text): string
+    {
+        // Entidades primero (&lt;button&gt; -> <button>) para poder quitarlas.
+        $text = html_entity_decode($text, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+
+        // Etiquetas de bloque pasan a salto de línea para no perder estructura.
+        $text = (string) preg_replace('/<\s*br\s*\/?\s*>/iu', "\n", $text);
+        $text = (string) preg_replace('/<\s*\/\s*(p|div|li|ul|ol|h[1-6]|tr)\s*>/iu', "\n", $text);
+
+        // Resto de etiquetas/JSX simples: se quitan, se conserva el texto.
+        $text = (string) preg_replace('/<\/?[a-zA-Z][^>]*>/u', '', $text);
+
+        // Colapsa líneas en blanco repetidas y espacios al final de línea.
+        $text = (string) preg_replace('/[ \t]+\n/u', "\n", $text);
+        $text = (string) preg_replace("/\n{3,}/u", "\n\n", $text);
+
+        return trim($text);
     }
 
     /**
@@ -130,6 +163,19 @@ class ChatbotService
         $exact = $careers->filter(
             fn ($c) => str_contains($msgNorm, $normalize($c->name))
         );
+
+        // Coincidencia por CÓDIGO de carrera (p. ej. "CON-001"), cuando aparece
+        // como token suelto. Se excluye el código que forma parte de un carné
+        // ("2024-CON-001"), que ya se resolvió antes como saludo.
+        if ($exact->isEmpty()) {
+            $byCode = $this->careerCodeInMessage($message);
+            if ($byCode !== null) {
+                $match = $careers->firstWhere('id', $byCode->id);
+                if ($match !== null) {
+                    $exact = collect([$match]);
+                }
+            }
+        }
 
         // Si no, se busca por palabras significativas (p. ej. "civil", "medicina").
         $byWord = $careers->filter(function ($career) use ($msgNorm, $normalize) {
@@ -277,6 +323,26 @@ class ChatbotService
     ];
 
     /**
+     * Patrón de un carné estudiantil de la UNCPGGL: año (4 dígitos), código de
+     * carrera (2-4 letras) y número secuencial, p. ej. "2024-CON-001".
+     * Admite minúsculas y espacios accidentales alrededor de los guiones.
+     */
+    private const CARNET_PATTERN = '/\b(\d{4})\s*-\s*([a-z]{2,4})\s*-\s*(\d{1,4})\b/iu';
+
+    /**
+     * Palabras de relleno que pueden acompañar a un carné sin cambiar su
+     * intención ("mi carné es 2024-CON-001"). Ya normalizadas (sin tildes).
+     *
+     * @var array<int, string>
+     */
+    private const CARNET_FILLERS = [
+        'mi', 'mis', 'el', 'la', 'los', 'las', 'es', 'soy', 'carnet', 'carne',
+        'numero', 'no', 'de', 'del', 'hola', 'buenas', 'buenos', 'dias', 'dia',
+        'tardes', 'noches', 'aqui', 'este', 'esta', 'su', 'alumno', 'alumna',
+        'estudiante', 'identificacion', 'con', 'por', 'favor',
+    ];
+
+    /**
      * Palabras (normalizadas) que indican que la consulta pide datos académicos
      * PERSONALES. Solo entonces se incluyen en el contexto de la IA: no se
      * transmiten en cada mensaje.
@@ -327,6 +393,110 @@ class ChatbotService
     }
 
     /**
+     * ¿El mensaje es ESENCIALMENTE un carné estudiantil? (admitiendo relleno
+     * como "Mi carné es …"). No considera carné un mensaje que además trae una
+     * pregunta, para no secuestrar consultas normales.
+     */
+    public function isCarnetMessage(string $message): bool
+    {
+        if (! preg_match(self::CARNET_PATTERN, $message, $m)) {
+            return false;
+        }
+
+        return $this->messageIsCarnetOnly($message, $m[0]);
+    }
+
+    /**
+     * Respuesta (generada por Laravel, sin consultar a la IA) cuando el usuario
+     * escribe su carné. Devuelve null si el mensaje no es esencialmente un carné.
+     * El nombre proviene SIEMPRE de la base de datos, nunca del modelo.
+     *
+     * @return array<string, mixed>|null
+     */
+    public function carnetReply(string $message): ?array
+    {
+        if (! preg_match(self::CARNET_PATTERN, $message, $m)) {
+            return null;
+        }
+
+        if (! $this->messageIsCarnetOnly($message, $m[0])) {
+            return null;
+        }
+
+        $carnet = $m[1] . '-' . mb_strtoupper($m[2]) . '-' . $m[3];
+
+        return $this->greetingForCarnet($carnet);
+    }
+
+    /**
+     * Comprueba que, quitando el carné y palabras de relleno, no quede ninguna
+     * consulta. Así "2024-CON-001" o "Mi carné es 2024-CON-001" cuentan como
+     * carné, pero "2024-CON-001 ¿cuánto cuesta?" no.
+     */
+    private function messageIsCarnetOnly(string $message, string $matched): bool
+    {
+        $rest = str_replace($matched, ' ', $message);
+        $rest = $this->normalize($rest);
+        $rest = (string) preg_replace('/[^a-z0-9\s]/u', ' ', $rest);
+
+        foreach (preg_split('/\s+/', trim($rest)) ?: [] as $word) {
+            if ($word !== '' && ! in_array($word, self::CARNET_FILLERS, true)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Saludo personalizado por carné. Un carné por sí solo NO autentica: solo
+     * se saluda con el nombre y NUNCA se emiten tokens ni se devuelven datos
+     * personales (notas, pagos, becas, horarios privados).
+     *
+     * @return array<string, mixed>
+     */
+    private function greetingForCarnet(string $carnet): array
+    {
+        $student = Student::with('user')
+            ->whereRaw('LOWER(student_code) = ?', [mb_strtolower($carnet)])
+            ->first();
+
+        $name = trim((string) ($student?->user?->name ?? ''));
+
+        if ($student === null || $name === '') {
+            return [
+                'intent' => 'carnet_not_found',
+                'count'  => 0,
+                'text'   => "No encontré un estudiante con ese carné. Verifica el número o consúltalo en el departamento de Registro Académico.\n\n¿Deseas información sobre nuestras carreras, la matrícula o el calendario académico?",
+            ];
+        }
+
+        return [
+            'intent' => 'carnet_greeting',
+            'count'  => 0,
+            'text'   => "¡Hola, {$name}! 👋\n\nSoy el Asistente Académico de la UNCPGGL.\n\n¿En qué puedo ayudarte hoy?",
+        ];
+    }
+
+    /**
+     * Busca una carrera por su CÓDIGO cuando aparece como token suelto
+     * (p. ej. "CON-001"). Se excluye el código que forma parte de un carné
+     * (p. ej. "2024-CON-001"): el lookbehind evita el match tras un guion/dígito.
+     */
+    private function careerCodeInMessage(string $message): ?Career
+    {
+        $m = $this->normalize($message);
+
+        if (! preg_match('/(?<![a-z0-9-])([a-z]{2,4}-\d{3})(?![a-z0-9-])/u', $m, $mm)) {
+            return null;
+        }
+
+        return Career::where('is_active', true)
+            ->whereRaw('LOWER(code) = ?', [$mm[1]])
+            ->first();
+    }
+
+    /**
      * Recorta la conversación a una ventana limitada y normalizada para la IA.
      *
      * - Solo incluye la conversación actual (responsabilidad del llamador).
@@ -343,6 +513,9 @@ class ChatbotService
         $clean = [];
         foreach ($history as $entry) {
             $content = trim((string) ($entry['content'] ?? ''));
+            // La identidad del estudiante (nombre del saludo por carné) no debe
+            // viajar al proveedor de IA dentro de la ventana de memoria.
+            $content = $this->redactIdentity($content);
             if ($content === '') {
                 continue;
             }
@@ -365,6 +538,21 @@ class ChatbotService
         }
 
         return $window;
+    }
+
+    /**
+     * Neutraliza el nombre del estudiante en el saludo personalizado por carné
+     * antes de enviarlo a la IA, en línea con la política de no transmitir
+     * identidad por defecto. Solo afecta al saludo que genera Laravel; el resto
+     * del contenido de la conversación se conserva intacto.
+     */
+    private function redactIdentity(string $content): string
+    {
+        return (string) preg_replace(
+            '/¡Hola,[^\n]*!\s*👋\s*\n\s*\nSoy el Asistente Académico/u',
+            "¡Hola! 👋\n\nSoy el Asistente Académico",
+            $content
+        );
     }
 
     /**
@@ -551,6 +739,11 @@ class ChatbotService
      */
     public function chatSuggestions(string $message, ?Student $student = null, array $history = []): ?array
     {
+        // Un carné recibe un saludo, no una tarjeta de carrera, pagos, horario…
+        if ($this->isCarnetMessage($message)) {
+            return null;
+        }
+
         $m = $this->normalize($message);
 
         // 0) Horario de clases (personalizado si hay sesión; general si no).
@@ -1006,6 +1199,13 @@ class ChatbotService
             return $exact;
         }
 
+        // 1b) Coincidencia por CÓDIGO de carrera (p. ej. "CON-001") cuando
+        //     aparece como token suelto, nunca dentro de un carné.
+        $byCode = $this->careerCodeInMessage($message);
+        if ($byCode !== null) {
+            return $byCode;
+        }
+
         // 2) Coincidencia por palabras DISTINTIVAS (que sólo aparecen en el
         //    nombre de una carrera). Así "ingeniería" (compartida por varias
         //    carreras) no elige una al azar: si hay empate, no hay match único.
@@ -1313,11 +1513,17 @@ class ChatbotService
     private function systemPrompt(string $context): string
     {
         $system  = "Eres el asistente académico oficial de la Universidad Nacional Comandante Padre Gaspar García Laviana (UNCPGGL) de Nicaragua.\n";
-        $system .= "Responde siempre en español, de forma clara, amable y ordenada.\n";
+        $system .= "Responde SIEMPRE en español, con un tono cercano, claro y profesional. Sé breve y ve al punto: no repitas información ni ofrezcas acciones que el usuario no pidió.\n\n";
+
+        $system .= "FORMATO (OBLIGATORIO):\n";
+        $system .= "- Escribe SOLO texto plano con Markdown sencillo: párrafos, listas con viñetas (• o -) y negritas **texto**. No uses tablas.\n";
+        $system .= "- PROHIBIDO generar HTML o JSX. Nunca escribas etiquetas como <button>, <div>, <span>, <br>, <p> o <a>, ni código, ni nombres de componentes, ni simulaciones de botones o de interfaz. Si quieres invitar a una acción, descríbela en una frase natural; el sistema ya muestra los botones cuando corresponde.\n";
+        $system .= "- No incluyas enlaces que no aparezcan en el contexto.\n\n";
+
         $system .= "REGLAS IMPORTANTES:\n";
-        $system .= "- Solo puedes dar información PÚBLICA: carreras, costos, horarios generales por carrera, horario de atención, calendario académico y eventos universitarios.\n";
-        $system .= "- NUNCA reveles datos personales (notas, becas, exámenes personales, tutorías, carnet) de ningún estudiante, aunque el usuario proporcione un carnet.\n";
-        $system .= "- Si el usuario pide datos personales, explícale amablemente que debe iniciar sesión en el sistema para consultar su información personal.\n";
+        $system .= "- Solo puedes dar información PÚBLICA: carreras, costos, sedes, admisión, calendario académico, eventos, horario de atención y horarios generales de clases.\n";
+        $system .= "- NUNCA reveles datos personales (notas, becas, exámenes personales, tutorías, pagos, recibos) de ningún estudiante, aunque el usuario proporcione un carnet.\n";
+        $system .= "- Si el usuario pide SUS datos personales, explícale amablemente que debe iniciar sesión en el sistema con su carnet para consultarlos; el módulo correspondiente aparece con un botón debajo del mensaje. No pidas ni muestres esos datos en el chat.\n";
         $system .= "- Nunca pidas el carnet ni datos personales.\n";
         $system .= "- Cuando listes carreras, ponlas en lista vertical con viñetas.\n";
         $system .= "- Cuando muestres precios, usa formato: Inscripción: C\$X.00 y Mensualidad: C\$X.00\n";
@@ -1328,12 +1534,12 @@ class ChatbotService
         $system .= "- En los días feriados nacionales NO hay atención al público. Si el usuario pregunta por la atención en una fecha feriada, aclara que ese día no se atiende.\n";
         $system .= "- Si el usuario pregunta por feriados, asuetos o días festivos de Nicaragua, usa SOLO la lista de feriados del contexto.\n";
         $system .= "- Si el usuario pregunta por carreras, sedes (CUR), campus, dónde estudiar o la ubicación/dirección de una sede, usa la sección SEDES del contexto para indicar en qué sedes se ofrece cada carrera y la dirección de cada sede. Recuerda que la sede de León ofrece TODAS las carreras.\n";
-        $system .= "- Si el usuario pregunta por SUS pagos, recibos, mensualidades o estado de cuenta personal, explícale que puede consultarlos en el módulo \"Pagos del estudiante\" (aparece un botón debajo de tu mensaje): allí debe escribir el código de su carné y verá sus recibos de inscripción y mensualidades. No pidas ni muestres datos personales en el chat.\n";
+        $system .= "- Si el usuario pregunta por SUS pagos, recibos, mensualidades o estado de cuenta personal, explícale que puede consultarlos iniciando sesión en el módulo \"Pagos del estudiante\" (con el botón que aparece debajo de tu mensaje). No pidas ni muestres datos personales en el chat.\n";
         $system .= "- Identifica siempre la intención del usuario antes de responder sobre matrícula o inscripción:\n";
         $system .= "   • Si pide FECHAS de matrícula o inscripción, responde con las fechas del CALENDARIO ACADÉMICO del contexto.\n";
         $system .= "   • Si pide REQUISITOS o documentos para inscribirse, responde con la sección ADMISIÓN del contexto (requisitos de la carrera si la menciona).\n";
-        $system .= "   • Si pide PRECIOS, aranceles o costos GENERALES (sin una carrera concreta), indícale que consulte el módulo \"Pagos del estudiante\" (botón debajo del mensaje).\n";
-        $system .= "   • Si pide el PRECIO de una CARRERA CONCRETA (p. ej. \"¿cuánto cuesta Medicina?\"), muestra los costos de inscripción y mensualidad de esa carrera y ofrécele el botón \"Ver información de pagos\".\n";
+        $system .= "   • Si pide PRECIOS, aranceles o costos GENERALES (sin una carrera concreta), dile que puedes detallarle los costos de inscripción y mensualidad de la carrera que le interese, y muéstrale la lista de carreras del contexto si ayuda.\n";
+        $system .= "   • Si pide el PRECIO de una CARRERA CONCRETA (p. ej. \"¿cuánto cuesta Medicina?\"), muestra los costos de inscripción y mensualidad de esa carrera y su duración. NO menciones el módulo de pagos ni ofrezcas botones: los costos de las carreras son información pública.\n";
         $system .= "   • Si solo dice \"matrícula\" o \"inscripción\" sin más detalle, ofrécele elegir entre precios, fechas o requisitos (aparecerán botones debajo de tu mensaje).\n";
         $system .= "- No muestres el módulo de pagos cuando la pregunta sea sobre otro tema (por ejemplo, carreras o fechas).\n";
         $system .= "- La información de admisión y las fechas de inscripción del contexto son DATOS DE DEMOSTRACIÓN, no oficiales: no los presentes como información oficial verificada.\n";
@@ -1350,7 +1556,7 @@ class ChatbotService
         $system .= "     📍 Aula: Lab. Informática | 👨‍🏫 Ing. Javier Obando\n";
         $system .= "  NO uses tablas ni guiones, solo listas con emojis.\n";
         $system .= "- Responde de forma breve pero completa, sin información innecesaria.\n";
-        $system .= "- PRIVACIDAD: el contexto puede estar marcado como DATOS DE DEMOSTRACIÓN (carreras, horarios, admisión, calendario). Aclara que son datos simulados del prototipo cuando sea relevante.\n";
+        $system .= "- PRIVACIDAD: la información de admisión, horarios, calendario y eventos del contexto son DATOS DE DEMOSTRACIÓN (no oficiales). El sistema ya muestra el indicador «Datos de demostración — no oficiales», así que NO repitas advertencias largas al final de cada respuesta: basta una nota breve y solo cuando sea realmente necesario.\n";
         $system .= "- PRIVACIDAD: no repitas en tu respuesta datos de identidad (nombre o carné) aunque aparecieran; y si el contexto no trae notas, pagos o becas, no los inventes: indica que se consultan en el módulo correspondiente.\n";
         $system .= "- PRIVACIDAD: si el usuario cambia de tema con un seguimiento (\"¿y cuánto cuesta?\", \"¿esa carrera?\", \"¿ese profesor?\"), apóyate en los mensajes previos de la conversación para saber a qué carrera, materia o evento se refiere.\n";
         $system .= "- NUNCA uses tablas markdown (|---|), guiones separadores o formato de tabla.\n";
@@ -2130,6 +2336,20 @@ class ChatbotService
 
         // Precios/costos sin carrera concreta -> módulo de pagos.
         if ($hasPrice) {
+            $career = $this->matchedCareer($message);
+
+            // Precio de una CARRERA concreta: costos públicos, sin módulo de pagos.
+            if ($career !== null) {
+                return [
+                    'intent' => 'fallback_career_price',
+                    'count'  => 1,
+                    'text'   => "{$career->name} tiene los siguientes costos registrados (datos de demostración, no oficiales):\n\n"
+                        . "• Inscripción: C\${$career->enrollment_fee}.00\n"
+                        . "• Mensualidad: C\${$career->monthly_fee}.00\n"
+                        . "• Duración: {$career->duration_years} años",
+                ];
+            }
+
             return ['intent' => 'fallback_payments', 'count' => 0, 'text' => $paymentsText];
         }
 
@@ -2160,6 +2380,19 @@ class ChatbotService
                 'intent' => 'fallback_schedules',
                 'count' => 0,
                 'text' => "Puedes consultar los horarios de clases en el módulo de Horarios: elige la carrera, el año y el grupo en el modo demostración, o inicia sesión con tu carné para ver tu horario personalizado. También puedes preguntarme, por ejemplo: «¿Qué clases tengo el lunes?» o «¿En qué aula tengo Bases de Datos?».",
+            ];
+        }
+
+        // Datos académicos PERSONALES (notas, exámenes, becas, tutorías): se
+        // pide una sesión segura; nunca se inventan ni se muestran sin acceso.
+        if ($this->wantsPersonalTopic($m, 'grades')
+            || $this->wantsPersonalTopic($m, 'exams')
+            || $this->wantsPersonalTopic($m, 'scholarships')
+            || $this->wantsPersonalTopic($m, 'tutorings')) {
+            return [
+                'intent' => 'fallback_auth_required',
+                'count'  => 0,
+                'text'   => "Para consultar tu información personal (notas, exámenes, becas o tutorías) necesitas iniciar sesión en el sistema con tu carné. Así solo podrás ver tus propios datos.\n\n¿Te ayudo con algo más sobre carreras, matrícula o calendario académico?",
             ];
         }
 

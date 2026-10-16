@@ -65,6 +65,15 @@ class AuthController extends Controller
      * carné y se emite un token Sanctum asociado a su cuenta. La consulta de
      * horarios personales exige esta sesión y sólo devuelve la información del
      * propio estudiante.
+     *
+     * SEGURIDAD (uso real, fuera del prototipo): un carné por sí solo NO es un
+     * factor de autenticación suficiente (es público y adivinable). Para
+     * estudiantes reales este endpoint debe exigir, además del carné, un
+     * segundo factor verificable (por ejemplo un PIN/contraseña personal u OTP
+     * enviado al correo institucional, o el inicio de sesión institucional
+     * SSO). El límite de intentos (throttle) reduce la fuerza bruta pero no
+     * sustituye la verificación. No se amplía ni se debilita el mecanismo
+     * actual mientras la demo use únicamente estudiantes ficticios.
      */
     public function loginCarnet(Request $request): JsonResponse
     {

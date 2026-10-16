@@ -25,10 +25,11 @@ const formatMoney = (value) => {
  * Tarjetas de carreras renderizadas dentro del chat a partir de datos
  * estructurados enviados por Laravel (no HTML generado por la IA).
  *
- * Muestra los costos de inscripción y mensualidad (datos de demostración) y un
- * acceso directo al módulo de pagos sin abandonar la conversación.
+ * Muestra los costos de inscripción y mensualidad (datos de demostración). No
+ * incluye accesos al módulo de pagos: los costos de una carrera son información
+ * pública y no deben confundirse con los pagos personales del estudiante.
  */
-function CareerSuggestions({ data, onOpenCarreras, onOpenPagos }) {
+function CareerSuggestions({ data, onOpenCarreras }) {
   const careers = Array.isArray(data?.careers) ? data.careers : [];
   if (careers.length === 0) return null;
 
@@ -98,13 +99,6 @@ function CareerSuggestions({ data, onOpenCarreras, onOpenPagos }) {
       )}
 
       <div className="career-suggest-foot">
-        <button
-          type="button"
-          className="career-suggest-payments"
-          onClick={() => onOpenPagos?.()}
-        >
-          <span aria-hidden="true">🧾</span> Ver información de pagos
-        </button>
         {hasFees && <DemoBadge />}
       </div>
     </div>

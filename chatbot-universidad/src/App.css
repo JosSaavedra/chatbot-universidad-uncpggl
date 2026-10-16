@@ -261,17 +261,28 @@ body {
   box-shadow: 0 0 0 2px rgba(255, 255, 255, .05);
 }
 
-.privacy-note {
+.privacy-link {
+  background: none;
+  border: none;
+  padding: 0;
   margin: -6px 20px 14px;
-  padding: 0 6px;
+  font-family: inherit;
   font-size: 0.72rem;
   line-height: 1.35;
-  color: #94a3b8;
+  color: #64748b;
   text-align: center;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.privacy-link:hover {
+  color: #94a3b8;
 }
 
 @media (min-width: 768px) {
-  .privacy-note {
+  .privacy-link {
     margin: -12px 30px 18px;
     font-size: 0.78rem;
   }

@@ -1,0 +1,70 @@
+.privacy-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  z-index: 50;
+}
+
+.privacy-modal {
+  width: 100%;
+  max-width: 460px;
+  max-height: 80vh;
+  overflow-y: auto;
+  background: #111827;
+  border: 1px solid #334155;
+  border-radius: 16px;
+  padding: 18px;
+  box-shadow: 0 20px 40px -12px rgba(0, 0, 0, 0.7);
+  animation: fadeInUp 0.2s ease;
+}
+
+.privacy-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.privacy-modal-header h3 {
+  color: #f8fafc;
+  font-size: 1.05rem;
+  margin: 0;
+}
+
+.privacy-modal-close {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  font-size: 1rem;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 8px;
+  transition: background 0.2s, color 0.2s;
+}
+
+.privacy-modal-close:hover {
+  background: #1f2937;
+  color: #f8fafc;
+}
+
+.privacy-modal-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.privacy-modal-body p {
+  margin: 0;
+  color: #cbd5e1;
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+.privacy-modal-body strong {
+  color: #f8fafc;
+}

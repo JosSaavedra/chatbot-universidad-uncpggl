@@ -3,6 +3,7 @@ import { useChat } from "../../hooks/useChat";
 import MessageBubble from "./MessageBubble";
 import ChatInput from "./chatInput";
 import QuickReplies from "./QuickReplies";
+import PrivacyModal from "./PrivacyModal";
 import escudo from "../../assets/universidad.png.webp";
 import { clearSession } from "../../services/chatService";
 
@@ -13,6 +14,7 @@ function ChatContainer({ onOpenCalendar, onOpenOferta, onOpenCarreras, onOpenPag
   const chatInputRef = useRef(null);
   const [userScrolledUp, setUserScrolledUp] = useState(false);
   const [showQuickReplies, setShowQuickReplies] = useState(true);
+  const [showPrivacy, setShowPrivacy] = useState(false);
   const pendingSentRef = useRef(false);
 
   const handleScroll = () => {
@@ -135,12 +137,15 @@ function ChatContainer({ onOpenCalendar, onOpenOferta, onOpenCarreras, onOpenPag
 
       <ChatInput ref={chatInputRef} onSend={onSend} disabled={loading} />
 
-      <p className="privacy-note" role="note">
-        🔒 Prototipo de demostración: parte de la información (carreras, horarios,
-        admisión y calendario) puede ser simulada. Tus mensajes se procesan con un
-        servicio de IA (Groq) para redactar la respuesta. No ingreses datos
-        sensibles (contraseñas, datos bancarios, etc.).
-      </p>
+      <button
+        type="button"
+        className="privacy-link"
+        onClick={() => setShowPrivacy(true)}
+      >
+        Privacidad y datos de demostración
+      </button>
+
+      {showPrivacy && <PrivacyModal onClose={() => setShowPrivacy(false)} />}
     </div>
   );
 }

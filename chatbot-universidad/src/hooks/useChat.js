@@ -6,41 +6,52 @@ const formatTime = (dateStr) => {
   return new Date(dateStr).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 };
 
+const greetingMessage = () => ({
+  id: "initial-bot-message",
+  role: "bot",
+  content: "¡Hola! Soy el asistente universitario de la UNCPGGL. ¿En qué puedo ayudarte?",
+  time: formatTime(),
+});
+
 export const useChat = () => {
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [historyLoaded, setHistoryLoaded] = useState(false);
 
   useEffect(() => {
+    let active = true;
+
     const fetchHistory = async () => {
+      let base;
       try {
         const history = await loadHistory();
-        if (history.length > 0) {
-          const formatted = history.map((msg, index) => ({
-            id: `history-${index}`,
-            role: msg.role,
-            content: msg.content,
-            time: formatTime(msg.created_at),
-          }));
-          setMessages(formatted);
-        } else {
-          setMessages([{
-            id: "initial-bot-message",
-            role: "bot",
-            content: "¡Hola! Soy el asistente universitario de la UNCPGGL. ¿En qué puedo ayudarte?",
-            time: formatTime(),
-          }]);
-        }
+        base =
+          history.length > 0
+            ? history.map((msg, index) => ({
+                id: `history-${index}`,
+                role: msg.role,
+                content: msg.content,
+                data: msg.data || null,
+                time: formatTime(msg.created_at),
+              }))
+            : [greetingMessage()];
       } catch {
-        setMessages([{
-          id: "initial-bot-message",
-          role: "bot",
-          content: "¡Hola! Soy el asistente universitario de la UNCPGGL. ¿En qué puedo ayudarte?",
-          time: formatTime(),
-        }]);
+        base = [greetingMessage()];
       }
+
+      if (!active) return;
+
+      // No sobrescribir mensajes que ya existan: en modo estricto (desarrollo)
+      // el efecto se ejecuta dos veces y una segunda carga tardía borraría el
+      // mensaje recién enviado desde "Preguntar al asistente".
+      setMessages((prev) => (prev.length > 0 ? prev : base));
+      setHistoryLoaded(true);
     };
 
     fetchHistory();
+    return () => {
+      active = false;
+    };
   }, []);
 
   const handleSend = async (text) => {
@@ -64,6 +75,7 @@ export const useChat = () => {
         id: `bot-${Date.now()}`,
         role: "bot",
         content: data?.reply || "Lo siento, no pude procesar tu respuesta.",
+        data: data?.data || null,
         time: formatTime(),
       };
 
@@ -94,5 +106,6 @@ export const useChat = () => {
     messages,
     loading,
     handleSend,
+    historyLoaded,
   };
 };

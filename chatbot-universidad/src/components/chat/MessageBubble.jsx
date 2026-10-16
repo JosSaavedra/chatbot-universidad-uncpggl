@@ -2,8 +2,24 @@ import { useState } from "react";
 import ReactMarkdown from "react-markdown";
 import escudo from "../../assets/universidad.png.webp";
 import TypewriterText from "./TypewriterText";
+import CareerSuggestions from "./CareerSuggestions";
+import PaymentSuggestions from "./PaymentSuggestions";
+import ChatActionCard from "./ChatActionCard";
+import ScheduleCard from "./ScheduleCard";
 
-function MessageBubble({ message, animate = false }) {
+const ACTION_TYPES = ["calendar", "admission", "matricula_options"];
+const SCHEDULE_TYPES = ["schedule", "schedule_picker"];
+
+function MessageBubble({
+  message,
+  animate = false,
+  onOpenCarreras,
+  onOpenPagos,
+  onOpenCalendar,
+  onOpenHorario,
+  onLogin,
+  onSelect,
+}) {
   const isBot = message.role === "bot";
   // Cada burbuja tiene su propio estado (key = message.id), así que inicia siempre sin animar.
   const [typed, setTyped] = useState(false);
@@ -55,6 +71,39 @@ function MessageBubble({ message, animate = false }) {
             <span style={{ whiteSpace: "pre-wrap" }}>{message.content}</span>
           )}
         </div>
+
+        {isBot && message.data?.type === "careers" && (
+          <CareerSuggestions
+            data={message.data}
+            onOpenCarreras={onOpenCarreras}
+            onOpenPagos={onOpenPagos}
+          />
+        )}
+
+        {isBot && message.data?.type === "payments" && (
+          <PaymentSuggestions
+            data={message.data}
+            onOpenPagos={onOpenPagos}
+            onLogin={onLogin}
+          />
+        )}
+
+        {isBot && ACTION_TYPES.includes(message.data?.type) && (
+          <ChatActionCard
+            data={message.data}
+            onOpenCalendar={onOpenCalendar}
+            onSelect={onSelect}
+          />
+        )}
+
+        {isBot && SCHEDULE_TYPES.includes(message.data?.type) && (
+          <ScheduleCard
+            data={message.data}
+            onOpenHorario={onOpenHorario}
+            onLogin={onLogin}
+          />
+        )}
+
         <div className="message-footer">
           <span className="message-time">{message.time}</span>
         </div>

@@ -1,0 +1,129 @@
+.login-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  z-index: 50;
+}
+
+.login-modal {
+  width: 100%;
+  max-width: 420px;
+  background: #111827;
+  border: 1px solid #334155;
+  border-radius: 16px;
+  padding: 18px;
+  box-shadow: 0 20px 40px -12px rgba(0, 0, 0, 0.7);
+  animation: fadeInUp 0.2s ease;
+}
+
+.login-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.login-modal-header h3 {
+  color: #f8fafc;
+  font-size: 1.1rem;
+  margin: 0;
+}
+
+.login-modal-close {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  font-size: 1rem;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 8px;
+  transition: background 0.2s, color 0.2s;
+}
+
+.login-modal-close:hover {
+  background: #1f2937;
+  color: #f8fafc;
+}
+
+.login-modal-text {
+  color: #cbd5e1;
+  font-size: 0.85rem;
+  line-height: 1.45;
+  margin: 0 0 14px;
+}
+
+.login-form {
+  display: flex;
+  gap: 8px;
+}
+
+.login-input {
+  flex: 1;
+  min-width: 0;
+  background: #0f172a;
+  border: 1px solid #334155;
+  border-radius: 10px;
+  padding: 11px 12px;
+  color: #e2e8f0;
+  font-size: 0.9rem;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.login-input:focus {
+  border-color: #991b1b;
+}
+
+.login-submit {
+  background: #991b1b;
+  border: none;
+  color: #fff;
+  border-radius: 10px;
+  padding: 0 16px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.15s;
+}
+
+.login-submit:hover:not(:disabled) {
+  background: #7f1d1d;
+  transform: translateY(-1px);
+}
+
+.login-submit:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.login-error {
+  margin-top: 10px;
+  background: rgba(153, 27, 27, 0.2);
+  border: 1px solid #7f1d1d;
+  color: #fca5a5;
+  border-radius: 10px;
+  padding: 9px 12px;
+  font-size: 0.82rem;
+}
+
+.login-hint {
+  margin: 14px 0 0;
+  color: #94a3b8;
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+
+.login-hint code {
+  background: #1f2937;
+  border: 1px solid #334155;
+  border-radius: 5px;
+  padding: 1px 5px;
+  color: #e2e8f0;
+  font-size: 0.72rem;
+}

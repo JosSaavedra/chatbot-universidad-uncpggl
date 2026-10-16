@@ -261,6 +261,22 @@ body {
   box-shadow: 0 0 0 2px rgba(255, 255, 255, .05);
 }
 
+.privacy-note {
+  margin: -6px 20px 14px;
+  padding: 0 6px;
+  font-size: 0.72rem;
+  line-height: 1.35;
+  color: #94a3b8;
+  text-align: center;
+}
+
+@media (min-width: 768px) {
+  .privacy-note {
+    margin: -12px 30px 18px;
+    font-size: 0.78rem;
+  }
+}
+
 .chat-input {
   flex: 1;
   background: transparent;
@@ -373,4 +389,84 @@ body {
 @keyframes blink {
   0%, 50% { opacity: 1; }
   51%, 100% { opacity: 0; }
+}
+
+/* Sesión del estudiante en el encabezado */
+.header-auth {
+  margin-left: auto;
+  flex-direction: row !important;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.header-auth-chip {
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  color: #fff;
+  border-radius: 20px;
+  padding: 6px 12px;
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+
+.header-auth-btn {
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  color: #fff;
+  border-radius: 20px;
+  padding: 6px 14px;
+  font-size: 0.8rem;
+  font-family: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.2s, border-color 0.2s;
+}
+
+.header-auth-btn:hover {
+  background: rgba(0, 0, 0, 0.4);
+}
+
+.header-auth-btn.primary {
+  background: #fff;
+  border-color: #fff;
+  color: #7f1d1d;
+  font-weight: 600;
+}
+
+.header-auth-btn.primary:hover {
+  background: #fee2e2;
+}
+
+@media (max-width: 640px) {
+  .header-auth-chip {
+    display: none;
+  }
+}
+
+/* Carga diferida de las vistas secundarias */
+.view-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 48px 16px;
+  color: #94a3b8;
+  font-size: 0.9rem;
+}
+
+.view-loading-spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid #334155;
+  border-top-color: #991b1b;
+  border-radius: 50%;
+  animation: view-loading-spin 0.8s linear infinite;
+}
+
+@keyframes view-loading-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }

@@ -1,15 +1,16 @@
 import "./QuickReplies.css";
 
 const quickReplies = [
-  { label: "📋 Ver carreras", text: "¿Qué carreras ofrece la universidad?" },
+  { label: "📋 Ver carreras", action: "carreras" },
+  { label: "🕐 Mi horario", action: "horario" },
+  { label: "🧾 Pagos del estudiante", action: "pagos" },
+  { label: "📍 Sedes y facultades", action: "oferta", tab: "sede" },
   { label: "💰 Precios", text: "¿Cuánto cuesta la inscripción y mensualidad?" },
-  { label: "📅 Horarios", text: "¿Cuáles son los horarios generales?" },
-  { label: "📆 Calendario", text: "¿Cuál es el calendario académico y las fechas de inscripción?" },
-  { label: "🏛️ Facultades", text: "¿Qué facultades tiene la universidad?" },
-  { label: "🎉 Eventos", text: "¿Cuáles son los próximos eventos universitarios?" },
+  { label: "🕐 Horario de atención", text: "¿Cuál es el horario de atención de la universidad?" },
+  { label: "📆 Calendario", action: "calendar" },
 ];
 
-function QuickReplies({ onSelect, visible }) {
+function QuickReplies({ onSelect, onOpenCalendar, onOpenOferta, onOpenCarreras, onOpenPagos, onOpenHorario, visible }) {
   if (!visible) return null;
 
   return (
@@ -20,7 +21,21 @@ function QuickReplies({ onSelect, visible }) {
           <button
             key={i}
             className="quick-reply-btn"
-            onClick={() => onSelect(qr.text)}
+            onClick={() => {
+              if (qr.action === "calendar") {
+                onOpenCalendar?.();
+              } else if (qr.action === "oferta") {
+                onOpenOferta?.(qr.tab);
+              } else if (qr.action === "carreras") {
+                onOpenCarreras?.();
+              } else if (qr.action === "pagos") {
+                onOpenPagos?.();
+              } else if (qr.action === "horario") {
+                onOpenHorario?.();
+              } else {
+                onSelect(qr.text);
+              }
+            }}
           >
             {qr.label}
           </button>

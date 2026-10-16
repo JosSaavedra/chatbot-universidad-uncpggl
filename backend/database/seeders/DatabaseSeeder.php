@@ -170,12 +170,33 @@ DB::table('tutorings')->insert($tutorings);
         DB::table('academic_calendars')->insert($calendars);
 
         $events = [
-            ['title' => 'Feria del Conocimiento 2026', 'description' => 'Exposición de proyectos estudiantiles y charlas académicas de todas las carreras.', 'location' => 'Auditorio Principal', 'event_date' => '2026-06-20 09:00:00', 'organizer' => 'Vicerrectorado Académico', 'is_active' => true, 'created_at' => now(), 'updated_at' => now()],
-            ['title' => 'Torneo Interfacultades de Fútbol', 'description' => 'Competencia deportiva entre las facultades de la universidad.', 'location' => 'Cancha Universitaria', 'event_date' => '2026-06-25 14:00:00', 'organizer' => 'Dirección de Bienestar Estudiantil', 'is_active' => true, 'created_at' => now(), 'updated_at' => now()],
-            ['title' => 'Conferencia: Inteligencia Artificial en la Educación', 'description' => 'Charla sobre el uso de IA en el ámbito educativo y profesional.', 'location' => 'Aula Magna', 'event_date' => '2026-06-18 10:00:00', 'organizer' => 'Facultad de Ciencias y Tecnología', 'is_active' => true, 'created_at' => now(), 'updated_at' => now()],
-            ['title' => 'Jornada de Bienestar Estudiantil', 'description' => 'Actividades de salud, recreación y convivencia para estudiantes.', 'location' => 'Campus Universitario', 'event_date' => '2026-06-22 08:00:00', 'organizer' => 'Dirección de Bienestar Estudiantil', 'is_active' => true, 'created_at' => now(), 'updated_at' => now()],
-            ['title' => 'Seminario de Investigación', 'description' => 'Presentación de investigaciones realizadas por docentes y estudiantes.', 'location' => 'Auditorio Principal', 'event_date' => '2026-07-10 09:00:00', 'organizer' => 'Vicerrectorado de Investigación', 'is_active' => true, 'created_at' => now(), 'updated_at' => now()],
+            ['title' => 'Feria del Conocimiento 2026', 'description' => 'Exposición de proyectos estudiantiles y charlas académicas de todas las carreras.', 'location' => 'Auditorio Principal', 'start_date' => '2026-06-20 09:00:00', 'end_date' => null, 'category' => 'activity', 'target_scope' => 'all', 'organizer' => 'Vicerrectorado Académico', 'is_active' => true, 'created_at' => now(), 'updated_at' => now()],
+            ['title' => 'Torneo Interfacultades de Fútbol', 'description' => 'Competencia deportiva entre las facultades de la universidad.', 'location' => 'Cancha Universitaria', 'start_date' => '2026-06-25 14:00:00', 'end_date' => null, 'category' => 'activity', 'target_scope' => 'all', 'organizer' => 'Dirección de Bienestar Estudiantil', 'is_active' => true, 'created_at' => now(), 'updated_at' => now()],
+            ['title' => 'Conferencia: Inteligencia Artificial en la Educación', 'description' => 'Charla sobre el uso de IA en el ámbito educativo y profesional.', 'location' => 'Aula Magna', 'start_date' => '2026-06-18 10:00:00', 'end_date' => null, 'category' => 'activity', 'target_scope' => 'all', 'organizer' => 'Facultad de Ciencias y Tecnología', 'is_active' => true, 'created_at' => now(), 'updated_at' => now()],
+            ['title' => 'Jornada de Bienestar Estudiantil', 'description' => 'Actividades de salud, recreación y convivencia para estudiantes.', 'location' => 'Campus Universitario', 'start_date' => '2026-06-22 08:00:00', 'end_date' => null, 'category' => 'activity', 'target_scope' => 'all', 'organizer' => 'Dirección de Bienestar Estudiantil', 'is_active' => true, 'created_at' => now(), 'updated_at' => now()],
+            ['title' => 'Seminario de Investigación', 'description' => 'Presentación de investigaciones realizadas por docentes y estudiantes.', 'location' => 'Auditorio Principal', 'start_date' => '2026-07-10 09:00:00', 'end_date' => null, 'category' => 'activity', 'target_scope' => 'all', 'organizer' => 'Vicerrectorado de Investigación', 'is_active' => true, 'created_at' => now(), 'updated_at' => now()],
         ];
         DB::table('university_events')->insert($events);
+
+        // Eventos académicos de ejemplo (matrícula, cuatrimestres, exámenes,
+        // vacaciones y actividades). Idempotente: no duplica registros.
+        $this->call(UniversityEventSeeder::class);
+
+        // Sedes (CUR) y las carreras que ofrece cada una.
+        $this->call(SedeSeeder::class);
+
+        // Información de ficha de las carreras: perfil, campo laboral,
+        // requisitos, plan de estudios y horarios (datos de ejemplo).
+        $this->call(CareerContentSeeder::class);
+
+        // Recibos de pago de ejemplo (inscripción y mensualidades).
+        $this->call(PaymentSeeder::class);
+
+        // Información de admisión de ejemplo (requisitos, documentos y pasos).
+        $this->call(AdmissionInfoSeeder::class);
+
+        // Docentes ficticios y horarios de clases de demostración.
+        $this->call(TeacherSeeder::class);
+        $this->call(ScheduleSeeder::class);
     }
 }

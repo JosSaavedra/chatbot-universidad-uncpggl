@@ -10,12 +10,27 @@ const getSessionId = () => {
 };
 
 export const sendMessage = async (message) => {
-  const response = await fetch(`${API_URL}/chat`, {
+  // Si hay sesión iniciada se usa el endpoint autenticado para que el bot
+  // pueda responder con la información personal (p. ej. el horario propio).
+  let token = null;
+  try {
+    token = localStorage.getItem("uncpggl_token");
+  } catch {
+    /* localStorage no disponible */
+  }
+
+  const endpoint = token ? "chat/auth" : "chat";
+  const headers = {
+    "Content-Type": "application/json",
+    "Accept": "application/json",
+  };
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
+  const response = await fetch(`${API_URL}/${endpoint}`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Accept": "application/json",
-    },
+    headers,
     body: JSON.stringify({
       message,
       session_id: getSessionId(),
@@ -35,8 +50,18 @@ export const sendMessage = async (message) => {
 export const loadHistory = async () => {
   const sessionId = getSessionId();
 
+  // El historial de una conversación personal exige el token del dueño; el
+  // backend responde 403 si intenta leerse sin autorización.
+  const headers = { Accept: "application/json" };
+  try {
+    const token = localStorage.getItem("uncpggl_token");
+    if (token) headers.Authorization = `Bearer ${token}`;
+  } catch {
+    /* localStorage no disponible */
+  }
+
   const response = await fetch(`${API_URL}/chat/history?session_id=${sessionId}`, {
-    headers: { "Accept": "application/json" },
+    headers,
   });
 
   if (!response.ok) return [];

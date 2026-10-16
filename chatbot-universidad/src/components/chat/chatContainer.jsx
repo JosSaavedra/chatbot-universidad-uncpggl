@@ -6,13 +6,14 @@ import QuickReplies from "./QuickReplies";
 import escudo from "../../assets/universidad.png.webp";
 import { clearSession } from "../../services/chatService";
 
-function ChatContainer() {
-  const { messages, loading, handleSend } = useChat();
+function ChatContainer({ onOpenCalendar, onOpenOferta, onOpenCarreras, onOpenPagos, onOpenHorario, onLogin, pendingMessage, onPendingConsumed }) {
+  const { messages, loading, handleSend, historyLoaded } = useChat();
   const messagesEndRef = useRef(null);
   const messagesContainerRef = useRef(null);
   const chatInputRef = useRef(null);
   const [userScrolledUp, setUserScrolledUp] = useState(false);
   const [showQuickReplies, setShowQuickReplies] = useState(true);
+  const pendingSentRef = useRef(false);
 
   const handleScroll = () => {
     const container = messagesContainerRef.current;
@@ -58,6 +59,20 @@ function ChatContainer() {
     await handleSend(text);
   }, [handleSend]);
 
+  // Envía una consulta pendiente (por ejemplo, desde "Preguntar al asistente"
+  // en la ficha de una carrera) una sola vez, cuando el historial ya cargó.
+  useEffect(() => {
+    if (!pendingMessage || !historyLoaded || pendingSentRef.current) return;
+    pendingSentRef.current = true;
+    const text = pendingMessage;
+    // Se difiere la actualización de estado para no encadenar renders dentro
+    // del propio efecto (react-hooks/set-state-in-effect).
+    queueMicrotask(() => {
+      onSend(text);
+      onPendingConsumed?.();
+    });
+  }, [pendingMessage, historyLoaded, onSend, onPendingConsumed]);
+
   return (
     <div className="chat-container">
 
@@ -77,6 +92,12 @@ function ChatContainer() {
             key={msg.id}
             message={msg}
             animate={msg.id === animateLastId}
+            onOpenCarreras={onOpenCarreras}
+            onOpenPagos={onOpenPagos}
+            onOpenCalendar={onOpenCalendar}
+            onOpenHorario={onOpenHorario}
+            onLogin={onLogin}
+            onSelect={onQuickReply}
           />
         ))}
 
@@ -96,7 +117,15 @@ function ChatContainer() {
         <div ref={messagesEndRef}></div>
       </div>
 
-      <QuickReplies onSelect={onQuickReply} visible={showQuickReplies && !loading} />
+      <QuickReplies
+        onSelect={onQuickReply}
+        onOpenCalendar={onOpenCalendar}
+        onOpenOferta={onOpenOferta}
+        onOpenCarreras={onOpenCarreras}
+        onOpenPagos={onOpenPagos}
+        onOpenHorario={onOpenHorario}
+        visible={showQuickReplies && !loading}
+      />
 
       {userScrolledUp && (
         <button className="scroll-bottom-btn" onClick={scrollToBottom}>
@@ -105,6 +134,13 @@ function ChatContainer() {
       )}
 
       <ChatInput ref={chatInputRef} onSend={onSend} disabled={loading} />
+
+      <p className="privacy-note" role="note">
+        🔒 Prototipo de demostración: parte de la información (carreras, horarios,
+        admisión y calendario) puede ser simulada. Tus mensajes se procesan con un
+        servicio de IA (Groq) para redactar la respuesta. No ingreses datos
+        sensibles (contraseñas, datos bancarios, etc.).
+      </p>
     </div>
   );
 }

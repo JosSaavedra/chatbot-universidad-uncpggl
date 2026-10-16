@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>UNCPGGL · Chatbot Universitario — Demo sin conexión</title>
+<style>
+  :root {
+    --bg: #0f172a;
+    --panel: #1e293b;
+    --bubble-bot: #334155;
+    --bubble-user: #2563eb;
+    --accent: #38bdf8;
+    --text: #e2e8f0;
+    --muted: #94a3b8;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+  }
+  .app {
+    width: 100%;
+    max-width: 720px;
+    height: min(92vh, 760px);
+    background: var(--panel);
+    border-radius: 18px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0,0,0,.5);
+  }
+  header {
+    background: linear-gradient(135deg, #1d4ed8, #0369a1);
+    padding: 16px 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  header .icon { font-size: 26px; }
+  header h1 { font-size: 17px; font-weight: 700; }
+  header p { font-size: 12px; color: #bfdbfe; }
+  .badge {
+    margin-left: auto;
+    background: rgba(255,255,255,.18);
+    border-radius: 999px;
+    padding: 4px 10px;
+    font-size: 11px;
+    color: #e0f2fe;
+    white-space: nowrap;
+  }
+  #chat {
+    flex: 1;
+    overflow-y: auto;
+    padding: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .msg { max-width: 82%; padding: 10px 14px; border-radius: 14px; line-height: 1.45; font-size: 14px; white-space: pre-wrap; word-break: break-word; }
+  .msg.bot { background: var(--bubble-bot); align-self: flex-start; border-bottom-left-radius: 4px; }
+  .msg.user { background: var(--bubble-user); align-self: flex-end; border-bottom-right-radius: 4px; }
+  .typing { font-style: italic; color: var(--muted); font-size: 13px; }
+  #quick {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 10px 16px;
+    border-top: 1px solid rgba(255,255,255,.08);
+  }
+  #quick button {
+    background: rgba(56,189,248,.12);
+    color: var(--accent);
+    border: 1px solid rgba(56,189,248,.35);
+    border-radius: 999px;
+    padding: 6px 12px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: background .15s;
+  }
+  #quick button:hover { background: rgba(56,189,248,.25); }
+  .inputbar {
+    display: flex;
+    gap: 8px;
+    padding: 12px 16px;
+    border-top: 1px solid rgba(255,255,255,.08);
+    background: var(--panel);
+  }
+  .inputbar input {
+    flex: 1;
+    background: var(--bg);
+    border: 1px solid rgba(255,255,255,.12);
+    border-radius: 10px;
+    padding: 10px 14px;
+    color: var(--text);
+    font-size: 14px;
+    outline: none;
+  }
+  .inputbar input:focus { border-color: var(--accent); }
+  .inputbar button {
+    background: var(--accent);
+    color: #0f172a;
+    border: none;
+    border-radius: 10px;
+    padding: 10px 18px;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .inputbar button:hover { filter: brightness(1.1); }
+</style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <span class="icon">🎓</span>
+      <div>
+        <h1>Chatbot Universitario UNCPGGL</h1>
+        <p>Modo demostración sin conexión — respuestas iguales a las del bot en producción</p>
+      </div>
+      <span class="badge">OFFLINE</span>
+    </header>
+
+    <div id="chat"></div>
+
+    <div id="quick">
+      <button data-q="carreras">🎓 Carreras</button>
+      <button data-q="costos">💰 Costos</button>
+      <button data-q="horarios">🕐 Horarios</button>
+      <button data-q="calendario">📅 Calendario</button>
+      <button data-q="eventos">📢 Eventos</button>
+      <button data-q="contacto">📞 Contacto</button>
+    </div>
+
+    <div class="inputbar">
+      <input id="input" type="text" placeholder="Escribe tu pregunta…">
+      <button id="send">Enviar</button>
+    </div>
+  </div>
+
+<script>
+  // ===== Base de conocimientos (misma información que responde el bot en producción) =====
+  const FAQ = [
+    {
+      key: "carreras",
+      title: "🎓 Carreras ofrecidas (15)",
+      text:
+        "• Medicina y Cirugía (MED-001)\n" +
+        "• Enfermería (ENF-001)\n" +
+        "• Nutrición y Dietética (NUT-001)\n" +
+        "• Ingeniería Civil (ICI-001)\n" +
+        "• Arquitectura (ARQ-001)\n" +
+        "• Ingeniería Industrial (IIN-001)\n" +
+        "• Ingeniería en Sistemas (ISI-001)\n" +
+        "• Ingeniería en Telecomunicaciones (ITE-001)\n" +
+        "• Física (FIS-001)\n" +
+        "• Ingeniería Agronómica (AGR-001)\n" +
+        "• Medicina Veterinaria (VET-001)\n" +
+        "• Ingeniería Forestal (FOR-001)\n" +
+        "• Administración de Empresas (ADM-001)\n" +
+        "• Contabilidad Pública y Finanzas (CON-001)\n" +
+        "• Economía (ECO-001)"
+    },
+    {
+      key: "costos",
+      title: "💰 Costos (inscripción y mensualidad)",
+      text:
+        "• Medicina y Cirugía (MED-001): Inscripción C$800.00 · Mensualidad C$500.00\n" +
+        "• Enfermería (ENF-001): C$600.00 · C$350.00\n" +
+        "• Nutrición y Dietética (NUT-001): C$600.00 · C$320.00\n" +
+        "• Ingeniería Civil (ICI-001): C$700.00 · C$420.00\n" +
+        "• Arquitectura (ARQ-001): C$700.00 · C$420.00\n" +
+        "• Ingeniería Industrial (IIN-001): C$700.00 · C$400.00\n" +
+        "• Ingeniería en Sistemas (ISI-001): C$700.00 · C$400.00\n" +
+        "• Ingeniería en Telecomunicaciones (ITE-001): C$700.00 · C$400.00\n" +
+        "• Física (FIS-001): C$500.00 · C$280.00\n" +
+        "• Ingeniería Agronómica (AGR-001): C$600.00 · C$350.00\n" +
+        "• Medicina Veterinaria (VET-001): C$700.00 · C$400.00\n" +
+        "• Ingeniería Forestal (FOR-001): C$600.00 · C$350.00\n" +
+        "• Administración de Empresas (ADM-001): C$600.00 · C$350.00\n" +
+        "• Contabilidad Pública y Finanzas (CON-001): C$600.00 · C$340.00\n" +
+        "• Economía (ECO-001): C$600.00 · C$340.00"
+    },
+    {
+      key: "horarios",
+      title: "🕐 Horarios de clases (muestra)",
+      text:
+        "📌 MEDICINA Y CIRUGÍA (MED-001)\n" +
+        "  Lunes · 07:00–09:00 | Anatomía I (Año 1) · Aula 201 · Dr. R. Chavarría\n" +
+        "  Martes · 07:00–09:00 | Química General (Año 1) · Lab. Ciencias · Dra. C. López\n" +
+        "  Martes · 09:00–11:00 | Fisiología Humana (Año 2) · Aula 202 · Dra. C. López\n" +
+        "  Miércoles · 07:00–09:00 | Anatomía II (Año 2) · Aula 201 · Dr. R. Chavarría\n" +
+        "  Miércoles · 09:00–11:00 | Bioquímica Clínica (Año 2) · Lab. Ciencias · Dr. M. Sánchez\n\n" +
+        "📌 INGENIERÍA CIVIL (ICI-001)\n" +
+        "  Jueves · 07:00–09:00 | Mecánica de Suelos (Año 4) · Aula 401 · Ing. P. Gutiérrez\n" +
+        "  Viernes · 09:00–11:00 | Estructuras I (Año 4) · Aula 401 · Ing. P. Gutiérrez\n\n" +
+        "📌 INGENIERÍA EN SISTEMAS (ISI-001)\n" +
+        "  Lunes · 08:00–10:00 | Programación I (Año 1) · Lab. Informática · Ing. J. Obando\n" +
+        "  Lunes · 10:00–12:00 | Base de Datos II (Año 3) · Lab. Informática · Ing. L. Centeno\n" +
+        "  Martes · 10:00–12:00 | Programación II (Año 2) · Lab. Informática · Ing. J. Obando\n" +
+        "  Miércoles · 08:00–10:00 | Programación III (Año 3) · Lab. Informática · Ing. J. Obando\n\n" +
+        "💡 Pregunta por horarios de otra carrera para más detalle."
+    },
+    {
+      key: "calendario",
+      title: "📅 Calendario académico",
+      text:
+        "• Vacaciones de Verano: del 18/12/2026 al 10/01/2027.\n" +
+        "• El calendario oficial se publica cada semestre en la página de la universidad."
+    },
+    {
+      key: "eventos",
+      title: "📢 Eventos universitarios",
+      text:
+        "No se encuentran eventos universitarios listados en la información disponible.\n\n" +
+        "Te recomiendo consultar la página oficial de la Universidad Nacional Comandante Padre Gaspar García Laviana o el calendario académico que se publica cada semestre."
+    },
+    {
+      key: "contacto",
+      title: "📞 Dirección y contacto",
+      text:
+        "En la información que manejo no aparece la dirección ni los datos de contacto de la universidad.\n\n" +
+        "Lo más recomendable es consultar el sitio web oficial de la universidad o contactar directamente con la oficina de admisiones a través de los canales publicados en su página institucional."
+    },
+    {
+      key: "saludo",
+      title: "¡Hola! 👋",
+      text:
+        "¡Bienvenido al Chatbot Universitario UNCPGGL (demo sin conexión)!\n\n" +
+        "Puedo informarte sobre:\n🎓 Carreras\n💰 Costos de matrícula y mensualidades\n🕐 Horarios de clases\n📅 Calendario académico\n📢 Eventos\n\n" +
+        "Pulsa un botón de abajo o escribe tu pregunta."
+    }
+  ];
+
+  // Palabras clave por tema
+  const RULES = [
+    { key: "horarios",  kw: ["horario", "clases", "hora", "aula", "materia", "asignatura"] },
+    { key: "costos",    kw: ["cost", "precio", "matrícula", "matricula", "pensión", "pension", "mensualidad", "cuánto", "cuanto", "pagar", "inscripción", "inscripcion"] },
+    { key: "calendario",kw: ["calendario", "vacaciones", "año académico", "ano academico", "semestre", "feriado"] },
+    { key: "eventos",   kw: ["evento", "actividad", "celebración", "celebracion", "feria", "seminario", "congreso"] },
+    { key: "contacto",  kw: ["contacto", "dirección", "direccion", "teléfono", "telefono", "correo", "email", "dónde", "donde", "ubicación", "ubicacion", "oficina"] },
+    { key: "carreras",  kw: ["carrera", "carreras", "facultad", "oferta", "medicina", "enfermería", "enfermeria", "nutrición", "nutricion", "ingeniería", "ingenieria", "arquitectura", "sistemas", "telecomunicaciones", "física", "fisica", "agronómica", "agronomica", "veterinaria", "forestal", "administración", "administracion", "contabilidad", "economía", "economia", "estudiar", "qué estudiar", "que estudiar"] },
+    { key: "saludo",    kw: ["hola", "buenas", "buenos días", "buenos dias", "hey", "saludos"] }
+  ];
+
+  const botMention = "😕 Perdón, estoy en modo demostración sin conexión y esa respuesta no está en mi guión. Prueba con: Carreras, Costos, Horarios, Calendario, Eventos o Contacto.";
+
+  const chat = document.getElementById("chat");
+  const input = document.getElementById("input");
+  const sendBtn = document.getElementById("send");
+  const quickBtns = document.querySelectorAll("#quick button");
+
+  function addMsg(text, who, typing) {
+    const div = document.createElement("div");
+    div.className = "msg " + (who === "user" ? "user" : "bot") + (typing ? " typing" : "");
+    div.textContent = text;
+    chat.appendChild(div);
+    chat.scrollTop = chat.scrollHeight;
+    return div;
+  }
+
+  function answer(q) {
+    q = q.toLowerCase();
+    let best = null, bestHits = 0;
+    for (const rule of RULES) {
+      let hits = 0;
+      for (const k of rule.kw) if (q.includes(k)) hits++;
+      if (hits > bestHits) { bestHits = hits; best = rule.key; }
+    }
+    const entry = FAQ.find(f => f.key === (best || "saludo"));
+    return (entry.title ? entry.title + "\n\n" : "") + entry.text;
+  }
+
+  function botSay(text) {
+    addMsg("…", "bot", true);
+    const timer = setTimeout(() => {
+      const t = chat.querySelector(".typing");
+      if (t) t.remove();
+      addMsg(text, "bot");
+    }, 500 + Math.min(1200, text.length * 4));
+    return timer;
+  }
+
+  function handle(q) {
+    const clean = q.trim();
+    if (!clean) return;
+    addMsg(clean, "user");
+    input.value = "";
+    botSay(answer(clean));
+  }
+
+  sendBtn.onclick = () => handle(input.value);
+  input.addEventListener("keydown", e => { if (e.key === "Enter") handle(input.value); });
+  quickBtns.forEach(b => b.onclick = () => handle(b.dataset.q === "carreras" ? "¿qué carreras hay?" :
+                                                    b.dataset.q === "costos"   ? "¿cuáles son los costos?" :
+                                                    b.dataset.q === "horarios" ? "¿cuáles son los horarios?" :
+                                                    b.dataset.q === "calendario" ? "¿cuál es el calendario académico?" :
+                                                    b.dataset.q === "eventos" ? "¿qué eventos hay?" : "¿dónde está la universidad?"));
+
+  // Mensaje inicial
+  window.addEventListener("load", () => botSay(FAQ.find(f => f.key === "saludo").title + "\n\n" + FAQ.find(f => f.key === "saludo").text));
+</script>
+</body>
+</html>

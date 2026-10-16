@@ -1,0 +1,169 @@
+.chat-action {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Botón principal (calendario) */
+.chat-action-main {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+  background: #111827;
+  border: 1px solid #334155;
+  border-radius: 12px;
+  padding: 12px;
+  color: #e2e8f0;
+  font-family: inherit;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s, transform 0.15s;
+}
+
+.chat-action-main:hover {
+  border-color: #991b1b;
+  background: #16202f;
+  transform: translateY(-1px);
+}
+
+.chat-action-icon {
+  flex-shrink: 0;
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
+  background: linear-gradient(135deg, #7f1d1d, #1a2332);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.chat-action-info {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.chat-action-title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #f8fafc;
+}
+
+.chat-action-sub {
+  font-size: 0.78rem;
+  color: #94a3b8;
+}
+
+.chat-action-cta {
+  font-size: 0.78rem;
+  color: #fca5a5;
+  margin-top: 2px;
+}
+
+/* Panel (admisión / opciones) */
+.chat-action-panel {
+  background: #111827;
+  border: 1px solid #334155;
+  border-radius: 12px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.chat-action-panel-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.chat-action-intro {
+  font-size: 0.85rem;
+  color: #cbd5e1;
+  margin: 0;
+}
+
+.chat-action-section {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.chat-action-section-title {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #fca5a5;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.chat-action-list {
+  margin: 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.chat-action-list li {
+  font-size: 0.85rem;
+  color: #e2e8f0;
+  line-height: 1.35;
+}
+
+.chat-action-note {
+  font-size: 0.78rem;
+  color: #94a3b8;
+  margin: 0;
+  padding-top: 6px;
+  border-top: 1px dashed #334155;
+}
+
+.chat-action-calendar {
+  align-self: flex-start;
+  background: #991b1b;
+  border: none;
+  color: #fff;
+  border-radius: 10px;
+  padding: 9px 14px;
+  font-size: 0.82rem;
+  font-family: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.15s;
+}
+
+.chat-action-calendar:hover {
+  background: #7f1d1d;
+  transform: translateY(-1px);
+}
+
+.chat-action-options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.chat-action-option {
+  background: #1f2937;
+  border: 1px solid #334155;
+  color: #e2e8f0;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 0.85rem;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s, transform 0.15s;
+}
+
+.chat-action-option:hover {
+  border-color: #991b1b;
+  background: #16202f;
+  transform: translateY(-1px);
+}

@@ -1,0 +1,138 @@
+.payment-suggest {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: #111827;
+  border: 1px solid #334155;
+  border-radius: 12px;
+  padding: 14px;
+}
+
+.payment-suggest-head {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #f8fafc;
+}
+
+.payment-suggest-sub {
+  font-size: 0.76rem;
+  color: #94a3b8;
+  margin-top: -4px;
+}
+
+.payment-suggest-summary {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+
+.payment-suggest-summary-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: #1f2937;
+  border: 1px solid #334155;
+  border-radius: 10px;
+  padding: 8px 10px;
+}
+
+.payment-suggest-summary-label {
+  font-size: 0.72rem;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.payment-suggest-summary-value {
+  font-size: 0.95rem;
+  color: #f8fafc;
+  font-weight: 600;
+}
+
+.payment-suggest-summary-value.pending {
+  color: #fca5a5;
+}
+
+.payment-suggest-items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.payment-suggest-item {
+  background: #1f2937;
+  border: 1px solid #334155;
+  border-radius: 10px;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.payment-suggest-item-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.payment-suggest-item-line.meta {
+  font-size: 0.76rem;
+  color: #94a3b8;
+}
+
+.payment-suggest-item-concept {
+  font-size: 0.86rem;
+  color: #f1f5f9;
+  font-weight: 600;
+}
+
+.payment-suggest-item-status {
+  font-size: 0.72rem;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.payment-suggest-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.payment-suggest-btn {
+  background: #1f2937;
+  border: 1px solid #334155;
+  color: #e2e8f0;
+  border-radius: 10px;
+  padding: 9px 13px;
+  font-size: 0.81rem;
+  font-family: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s, transform 0.15s;
+}
+
+.payment-suggest-btn:hover {
+  border-color: #991b1b;
+  background: #16202f;
+  transform: translateY(-1px);
+}
+
+.payment-suggest-link {
+  background: transparent;
+  border: none;
+  color: #fca5a5;
+  text-align: center;
+  font-size: 0.82rem;
+  cursor: pointer;
+  padding: 6px 8px;
+  transition: color 0.2s;
+}
+
+.payment-suggest-link:hover {
+  color: #fff;
+}

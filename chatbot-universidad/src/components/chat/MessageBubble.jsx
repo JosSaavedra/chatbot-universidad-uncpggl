@@ -4,6 +4,7 @@ import escudo from "../../assets/universidad.png.webp";
 import TypewriterText from "./TypewriterText";
 import CareerSuggestions from "./CareerSuggestions";
 import PaymentSuggestions from "./PaymentSuggestions";
+import GradesSuggestions from "./GradesSuggestions";
 import ChatActionCard from "./ChatActionCard";
 import ScheduleCard from "./ScheduleCard";
 import { stripHtmlTags } from "../../utils/sanitizeText";
@@ -18,6 +19,7 @@ function MessageBubble({
   onOpenPagos,
   onOpenCalendar,
   onOpenHorario,
+  onOpenNotas,
   onLogin,
   onSelect,
 }) {
@@ -90,6 +92,13 @@ function MessageBubble({
             data={message.data}
             onOpenPagos={onOpenPagos}
             onLogin={onLogin}
+          />
+        )}
+
+        {isBot && message.data?.type === "grades" && (
+          <GradesSuggestions
+            data={message.data}
+            onOpenNotas={onOpenNotas}
           />
         )}
 

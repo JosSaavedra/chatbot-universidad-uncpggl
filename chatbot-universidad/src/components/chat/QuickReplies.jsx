@@ -3,6 +3,7 @@ import "./QuickReplies.css";
 const quickReplies = [
   { label: "📋 Ver carreras", action: "carreras" },
   { label: "🕐 Mi horario", action: "horario" },
+  { label: "📝 Ver mis notas", action: "notas" },
   { label: "🧾 Pagos del estudiante", action: "pagos" },
   { label: "📍 Sedes y facultades", action: "oferta", tab: "sede" },
   { label: "💰 Precios", text: "¿Cuánto cuesta la inscripción y mensualidad?" },
@@ -10,7 +11,7 @@ const quickReplies = [
   { label: "📆 Calendario", action: "calendar" },
 ];
 
-function QuickReplies({ onSelect, onOpenCalendar, onOpenOferta, onOpenCarreras, onOpenPagos, onOpenHorario, visible }) {
+function QuickReplies({ onSelect, onOpenCalendar, onOpenOferta, onOpenCarreras, onOpenPagos, onOpenHorario, onOpenNotas, visible }) {
   if (!visible) return null;
 
   return (
@@ -24,6 +25,8 @@ function QuickReplies({ onSelect, onOpenCalendar, onOpenOferta, onOpenCarreras, 
             onClick={() => {
               if (qr.action === "calendar") {
                 onOpenCalendar?.();
+              } else if (qr.action === "notas") {
+                onOpenNotas?.();
               } else if (qr.action === "oferta") {
                 onOpenOferta?.(qr.tab);
               } else if (qr.action === "carreras") {

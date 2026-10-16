@@ -1,0 +1,442 @@
+.notas-view {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 18px 16px 90px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  background:
+    radial-gradient(circle at 15% 0%, rgba(153, 27, 27, 0.16), transparent 55%),
+    #0f172a;
+  animation: fadeInUp 0.3s ease;
+}
+
+@media (min-width: 768px) {
+  .notas-view {
+    padding: 22px 28px 96px;
+  }
+}
+
+/* --- Barra superior / volver --- */
+.notas-toolbar {
+  display: flex;
+  align-items: center;
+}
+
+.notas-back-btn {
+  background: transparent;
+  border: 1px solid #334155;
+  color: #cbd5e1;
+  border-radius: 999px;
+  padding: 8px 16px;
+  font-size: 0.82rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.notas-back-btn:hover {
+  background: #1f2937;
+  border-color: #64748b;
+  color: #f1f5f9;
+}
+
+/* --- Encabezado --- */
+.notas-hero {
+  background: linear-gradient(135deg, rgba(153, 27, 27, 0.9), rgba(69, 10, 10, 0.92));
+  border: 1px solid #7f1d1d;
+  border-radius: 18px;
+  padding: 18px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.notas-hero-title {
+  color: #fff;
+  font-size: 1.25rem;
+  line-height: 1.25;
+  margin: 0;
+}
+
+.notas-hero-text {
+  color: #fecaca;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  max-width: 60ch;
+}
+
+.notas-hero-badge {
+  display: flex;
+}
+
+.notas-search-btn {
+  align-self: flex-start;
+  background: #f8fafc;
+  color: #7f1d1d;
+  border: none;
+  border-radius: 12px;
+  padding: 12px 24px;
+  font-size: 0.92rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.15s ease, background 0.2s ease;
+}
+
+.notas-search-btn:hover {
+  background: #fee2e2;
+  transform: translateY(-1px);
+}
+
+.notas-error {
+  margin-top: 4px;
+  background: rgba(127, 29, 29, 0.35);
+  border: 1px solid #b91c1c;
+  color: #fecaca;
+  border-radius: 12px;
+  padding: 12px 14px;
+  font-size: 0.85rem;
+}
+
+/* --- Ficha del estudiante --- */
+.notas-student {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: #1a2332;
+  border: 1px solid #263449;
+  border-radius: 16px;
+  padding: 16px 18px;
+}
+
+.notas-student-avatar {
+  flex-shrink: 0;
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  color: #fff;
+  background: linear-gradient(135deg, #991b1b, #450a0a);
+  border: 1px solid #7f1d1d;
+}
+
+.notas-student-info {
+  min-width: 0;
+}
+
+.notas-student-info h3 {
+  color: #f8fafc;
+  font-size: 1.05rem;
+  margin-bottom: 2px;
+}
+
+.notas-student-info > p {
+  color: #94a3b8;
+  font-size: 0.85rem;
+  margin-bottom: 8px;
+}
+
+.notas-student-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.notas-chip {
+  background: #0f172a;
+  border: 1px solid #334155;
+  color: #cbd5e1;
+  border-radius: 999px;
+  padding: 3px 10px;
+  font-size: 0.72rem;
+}
+
+.notas-chip.ok {
+  background: rgba(34, 197, 94, 0.14);
+  border-color: rgba(34, 197, 94, 0.4);
+  color: #86efac;
+}
+
+.notas-chip.bad {
+  background: rgba(239, 68, 68, 0.16);
+  border-color: rgba(239, 68, 68, 0.45);
+  color: #fca5a5;
+}
+
+.notas-chip.warn {
+  background: rgba(245, 158, 11, 0.14);
+  border-color: rgba(245, 158, 11, 0.4);
+  color: #fcd34d;
+}
+
+/* --- Resumen --- */
+.notas-summary {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+
+@media (min-width: 640px) {
+  .notas-summary {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.notas-summary-card {
+  position: relative;
+  background: #1a2332;
+  border: 1px solid #263449;
+  border-left-width: 4px;
+  border-radius: 14px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.notas-summary-card.approved {
+  border-left-color: #16a34a;
+}
+
+.notas-summary-card.failed {
+  border-left-color: #dc2626;
+}
+
+.notas-summary-card.pending {
+  border-left-color: #d97706;
+}
+
+.notas-summary-label {
+  color: #94a3b8;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.notas-summary-value {
+  color: #f8fafc;
+  font-size: 1.15rem;
+}
+
+.notas-summary-sub {
+  color: #64748b;
+  font-size: 0.72rem;
+}
+
+/* --- Acciones (exportar PDF) --- */
+.notas-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.notas-export-btn {
+  background: #1d4ed8;
+  border: none;
+  border-radius: 8px;
+  color: #f8fafc;
+  padding: 7px 14px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.1s;
+}
+
+.notas-export-btn:hover:not(:disabled) {
+  background: #1e40af;
+}
+
+.notas-export-btn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.notas-export-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.notas-export-hint {
+  color: #94a3b8;
+  font-size: 0.76rem;
+}
+
+/* --- Filtros por período --- */
+.notas-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.notas-filter {
+  background: #1f2937;
+  border: 1px solid #334155;
+  color: #cbd5e1;
+  border-radius: 999px;
+  padding: 7px 14px;
+  font-size: 0.78rem;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.notas-filter:hover {
+  border-color: #64748b;
+  color: #f1f5f9;
+}
+
+.notas-filter.active {
+  background: #991b1b;
+  border-color: #b91c1c;
+  color: #fff;
+}
+
+/* --- Períodos y asignaturas --- */
+.notas-period {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.notas-period-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.notas-period-title {
+  color: #f8fafc;
+  font-size: 1rem;
+}
+
+.notas-period-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.notas-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.nota-card {
+  background: #1a2332;
+  border: 1px solid #263449;
+  border-radius: 14px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.nota-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.nota-subject {
+  color: #f8fafc;
+  font-size: 0.92rem;
+  font-weight: 600;
+}
+
+.nota-badge {
+  flex-shrink: 0;
+  display: inline-block;
+  border-radius: 999px;
+  padding: 3px 10px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border: 1px solid transparent;
+}
+
+.nota-badge.approved {
+  background: rgba(34, 197, 94, 0.14);
+  color: #86efac;
+  border-color: rgba(34, 197, 94, 0.4);
+}
+
+.nota-badge.failed {
+  background: rgba(239, 68, 68, 0.16);
+  color: #fca5a5;
+  border-color: rgba(239, 68, 68, 0.45);
+}
+
+.nota-badge.pending {
+  background: rgba(245, 158, 11, 0.14);
+  color: #fcd34d;
+  border-color: rgba(245, 158, 11, 0.4);
+}
+
+.nota-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+@media (min-width: 640px) {
+  .nota-stats {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+.nota-stat {
+  background: #111827;
+  border: 1px solid #263449;
+  border-radius: 10px;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.nota-stat-label {
+  color: #94a3b8;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.nota-stat-value {
+  color: #e2e8f0;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.nota-stat-value.strong {
+  color: #f8fafc;
+  font-weight: 700;
+}
+
+/* --- Sin datos --- */
+.notas-empty {
+  background: #1a2332;
+  border: 1px dashed #334155;
+  border-radius: 14px;
+  color: #94a3b8;
+  font-size: 0.88rem;
+  text-align: center;
+  padding: 28px 16px;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

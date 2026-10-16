@@ -7,7 +7,7 @@ import PrivacyModal from "./PrivacyModal";
 import escudo from "../../assets/universidad.png.webp";
 import { clearSession } from "../../services/chatService";
 
-function ChatContainer({ onOpenCalendar, onOpenOferta, onOpenCarreras, onOpenPagos, onOpenHorario, onLogin, pendingMessage, onPendingConsumed }) {
+function ChatContainer({ onOpenCalendar, onOpenOferta, onOpenCarreras, onOpenPagos, onOpenHorario, onOpenNotas, onLogin, pendingMessage, onPendingConsumed }) {
   const { messages, loading, handleSend, historyLoaded } = useChat();
   const messagesEndRef = useRef(null);
   const messagesContainerRef = useRef(null);
@@ -98,6 +98,7 @@ function ChatContainer({ onOpenCalendar, onOpenOferta, onOpenCarreras, onOpenPag
             onOpenPagos={onOpenPagos}
             onOpenCalendar={onOpenCalendar}
             onOpenHorario={onOpenHorario}
+            onOpenNotas={onOpenNotas}
             onLogin={onLogin}
             onSelect={onQuickReply}
           />
@@ -126,6 +127,7 @@ function ChatContainer({ onOpenCalendar, onOpenOferta, onOpenCarreras, onOpenPag
         onOpenCarreras={onOpenCarreras}
         onOpenPagos={onOpenPagos}
         onOpenHorario={onOpenHorario}
+        onOpenNotas={onOpenNotas}
         visible={showQuickReplies && !loading}
       />
 

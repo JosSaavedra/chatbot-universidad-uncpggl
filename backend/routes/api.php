@@ -55,6 +55,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/conversations/{id}', [ConversationController::class, 'show']);
     Route::delete('/conversations/{id}', [ConversationController::class, 'destroy']);
 
+    // Calificaciones del ESTUDIANTE AUTENTICADO, agrupadas por período. Se
+    // obtiene el usuario solo del token: no acepta user_id ni carné de otro.
+    Route::get('/my-grades', [GradeController::class, 'myGrades'])->middleware('throttle:30,1');
+
     Route::apiResource('careers', CareerController::class)->except('index');
     Route::apiResource('grades', GradeController::class);
     Route::apiResource('schedules', ScheduleController::class);

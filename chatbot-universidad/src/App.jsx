@@ -11,6 +11,7 @@ const OfertaAcademicaView = lazy(() => import("./components/oferta/OfertaAcademi
 const CarrerasView = lazy(() => import("./components/carreras/CarrerasView"));
 const PagosView = lazy(() => import("./components/pagos/PagosView"));
 const HorarioView = lazy(() => import("./components/horario/HorarioView"));
+const GradesView = lazy(() => import("./components/notas/GradesView"));
 const LoginModal = lazy(() => import("./components/auth/LoginModal"));
 
 const TITLES = {
@@ -20,6 +21,7 @@ const TITLES = {
   carreras: "Carreras",
   pagos: "Pagos del Estudiante",
   horario: "Horarios de Clases",
+  notas: "Mis Notas",
 };
 
 function App() {
@@ -53,6 +55,11 @@ function App() {
   const openHorario = (selection = null) => {
     setHorarioSelection(selection);
     setView("horario");
+  };
+
+  // Abre el módulo de calificaciones del estudiante.
+  const openNotas = () => {
+    setView("notas");
   };
 
   // Abre el inicio de sesión. `redirect` indica a qué vista ir tras iniciar
@@ -110,6 +117,7 @@ function App() {
             onOpenCarreras={openCarreras}
             onOpenPagos={openPagos}
             onOpenHorario={openHorario}
+            onOpenNotas={openNotas}
             onLogin={() => openLogin("horario")}
             pendingMessage={pendingMessage}
             onPendingConsumed={() => setPendingMessage(null)}
@@ -140,6 +148,12 @@ function App() {
             />
           )}
           {view === "pagos" && <PagosView onBack={() => setView("chat")} onLogin={() => openLogin(null)} />}
+          {view === "notas" && (
+            <GradesView
+              onBack={() => setView("chat")}
+              onLogin={() => openLogin("notas")}
+            />
+          )}
           {view === "horario" && (
             <HorarioView
               onBack={() => setView("chat")}

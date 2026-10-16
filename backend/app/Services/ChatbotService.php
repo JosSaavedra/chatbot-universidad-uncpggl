@@ -46,6 +46,13 @@ class ChatbotService
             return $carnet;
         }
 
+        // PRIORIDAD 1: consultas de calificaciones personales. Se responden de
+        // forma determinista (sin enviar notas a la IA) y se dirige al módulo
+        // "Mis notas". Con sesión válida no se pide iniciar sesión de nuevo.
+        if ($this->wantsGradesIntent($message)) {
+            return $this->gradesReply($userId);
+        }
+
         $context = $this->buildContext($message, $userId);
         $system  = $this->systemPrompt($context);
 
@@ -364,6 +371,20 @@ class ChatbotService
             'tutoria', 'tutorias', 'tutor', 'tutores', 'asesoria', 'asesorias',
             'reforzamiento',
         ],
+    ];
+
+    /**
+     * Términos inequívocos de CALIFICACIONES. Se usan para dirigir al módulo
+     * "Mis notas" de forma determinista (sin enviar notas a la IA). Se evitan
+     * verbos ambiguos como "aprobar" o "reprobar" para no desviar consultas de
+     * admisión hacia este módulo.
+     *
+     * @var array<int, string>
+     */
+    private const GRADES_INTENT_KEYWORDS = [
+        'nota', 'notas', 'calificacion', 'calificaciones', 'promedio',
+        'nota final', 'notas finales', 'nota definitiva', 'calificacion final',
+        'mis notas', 'mis calificaciones',
     ];
 
     private function normalize(string $text): string
@@ -750,6 +771,12 @@ class ChatbotService
         // Incluye seguimientos como "¿y mañana qué clases tengo?".
         if ($this->wantsScheduleIntent($message) || $this->isScheduleFollowUp($m, $history)) {
             return $this->scheduleSuggestion($message, $student, $history);
+        }
+
+        // 0.5) Calificaciones personales: se dirige al módulo "Mis notas".
+        // Se responde de forma determinista, sin enviar notas a la IA.
+        if ($this->wantsGradesIntent($message)) {
+            return ['type' => 'grades', 'matched' => true, 'personalized' => $student !== null];
         }
 
         // 1) Pagos/recibos personales.
@@ -1660,6 +1687,47 @@ class ChatbotService
     private function wantsPersonalTopic(string $msgLower, string $topic): bool
     {
         return $this->containsAny($msgLower, self::PERSONAL_DATA_KEYWORDS[$topic] ?? []);
+    }
+
+    /**
+     * ¿La consulta pide las CALIFICACIONES del propio estudiante?
+     *
+     * Se excluye "notas de bachillerato/secundaria", que es documentación de
+     * admisión y no las notas del estudiante.
+     */
+    private function wantsGradesIntent(string $message): bool
+    {
+        $m = $this->normalize($message);
+
+        if ($this->containsAny($m, ['bachillerato', 'secundaria'])) {
+            return false;
+        }
+
+        return $this->containsAny($m, self::GRADES_INTENT_KEYWORDS);
+    }
+
+    /**
+     * Respuesta determinista para consultas de CALIFICACIONES.
+     *
+     * Nunca se envían las notas a la IA: el asistente dirige al módulo
+     * "Mis notas", que lee los datos mediante un endpoint autenticado. Con una
+     * sesión válida NO se pide iniciar sesión de nuevo.
+     */
+    private function gradesReply(?int $userId): array
+    {
+        if ($userId !== null) {
+            return [
+                'intent' => 'grades_module',
+                'count'  => 0,
+                'text'   => "Puedes consultar tus calificaciones en el módulo «Mis notas»: allí verás tus asignaturas, las notas de cada parcial, el examen final, la nota definitiva y el estado de cada período.\n\nUsa el botón «Ver mis notas» que aparece aquí abajo.",
+            ];
+        }
+
+        return [
+            'intent' => 'fallback_auth_required',
+            'count'  => 0,
+            'text'   => "Para consultar tus calificaciones necesitas iniciar sesión en el sistema con tu carné. Así solo podrás ver tus propios datos.\n\nPuedes hacerlo desde el módulo «Mis notas».",
+        ];
     }
 
     private function addGrades(string &$ctx, int $userId): void

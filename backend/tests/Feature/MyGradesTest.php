@@ -48,6 +48,14 @@ class MyGradesTest extends TestCase
         return [$user, $student];
     }
 
+    private function makeAdmin(Career $career): User
+    {
+        [$admin] = $this->makeStudent($career, '2024-ADM-TEST', 'Administración de Prueba');
+        $admin->update(['is_admin' => true]);
+
+        return $admin->fresh();
+    }
+
     private function makeGrade(User $user, Career $career, array $overrides = []): Grade
     {
         return Grade::create(array_merge([
@@ -77,7 +85,7 @@ class MyGradesTest extends TestCase
     {
         $career = $this->career();
         [$userA] = $this->makeStudent($career, '2024-CON-099', 'Gabriela Castillo');
-        [$userB] = $this->makeStudent($career, '2024-MED-001', 'María José Téllez');
+        [$userB] = $this->makeStudent($career, '2024-MED-5837', 'María José Téllez');
 
         $this->makeGrade($userA, $career, ['subject_name' => 'Contabilidad General']);
         $this->makeGrade($userB, $career, ['subject_name' => 'Anatomía Humana']);
@@ -103,7 +111,7 @@ class MyGradesTest extends TestCase
     {
         $career = $this->career();
         [$userA] = $this->makeStudent($career, '2024-CON-099', 'Gabriela Castillo');
-        [$userB] = $this->makeStudent($career, '2024-MED-001', 'María José Téllez');
+        [$userB] = $this->makeStudent($career, '2024-MED-5837', 'María José Téllez');
 
         $this->makeGrade($userA, $career, ['subject_name' => 'Contabilidad General']);
         $this->makeGrade($userB, $career, ['subject_name' => 'Anatomía Humana']);
@@ -112,7 +120,7 @@ class MyGradesTest extends TestCase
 
         // Intento de "cambiar de identidad" por query string: se ignora.
         $response = $this->withToken($token)
-            ->getJson('/api/my-grades?user_id=' . $userB->id . '&carnet=2024-MED-001')
+            ->getJson('/api/my-grades?user_id=' . $userB->id . '&carnet=2024-MED-5837')
             ->assertOk();
 
         $response->assertJsonPath('data.student.carnet', '2024-CON-099');
@@ -153,7 +161,7 @@ class MyGradesTest extends TestCase
     {
         $career = $this->career();
         [$userA] = $this->makeStudent($career, '2024-CON-099', 'Gabriela Castillo');
-        [$userB] = $this->makeStudent($career, '2024-MED-001', 'María José Téllez');
+        [$userB] = $this->makeStudent($career, '2024-MED-5837', 'María José Téllez');
 
         $this->makeGrade($userA, $career);
         $this->makeGrade($userB, $career);
@@ -171,7 +179,7 @@ class MyGradesTest extends TestCase
     {
         $career = $this->career();
         [$userA] = $this->makeStudent($career, '2024-CON-099', 'Gabriela Castillo');
-        [$userB] = $this->makeStudent($career, '2024-MED-001', 'María José Téllez');
+        [$userB] = $this->makeStudent($career, '2024-MED-5837', 'María José Téllez');
 
         $gradeB = $this->makeGrade($userB, $career);
 
@@ -218,7 +226,7 @@ class MyGradesTest extends TestCase
         $career = $this->career();
         [$studentUser] = $this->makeStudent($career, '2024-CON-099', 'Gabriela Castillo');
 
-        $admin = User::factory()->create(['is_admin' => true]);
+        $admin = $this->makeAdmin($career);
         $token = $admin->createToken('password-login')->plainTextToken;
 
         // Crear
@@ -248,12 +256,12 @@ class MyGradesTest extends TestCase
     {
         $career = $this->career();
         [$userA] = $this->makeStudent($career, '2024-CON-099', 'Gabriela Castillo');
-        [$userB] = $this->makeStudent($career, '2024-MED-001', 'María José Téllez');
+        [$userB] = $this->makeStudent($career, '2024-MED-5837', 'María José Téllez');
 
         $this->makeGrade($userA, $career);
         $this->makeGrade($userB, $career);
 
-        $admin = User::factory()->create(['is_admin' => true]);
+        $admin = $this->makeAdmin($career);
         $token = $admin->createToken('password-login')->plainTextToken;
 
         $this->withToken($token)->getJson('/api/grades')

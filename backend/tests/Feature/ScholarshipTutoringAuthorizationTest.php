@@ -55,9 +55,12 @@ class ScholarshipTutoringAuthorizationTest extends TestCase
         return [$user, $student];
     }
 
-    private function makeAdmin(): User
+    private function makeAdmin(Career $career): User
     {
-        return User::factory()->create(['name' => 'Administrador', 'is_admin' => true]);
+        [$admin] = $this->makeStudent($career, '2024-ADM-AUT', 'Administrador');
+        $admin->update(['is_admin' => true]);
+
+        return $admin->fresh();
     }
 
     private function token(User $user): string
@@ -211,7 +214,7 @@ class ScholarshipTutoringAuthorizationTest extends TestCase
     {
         $career = $this->career();
         [$studentUser] = $this->makeStudent($career, 'TEST-AUT-001', 'Estudiante Común');
-        $admin = $this->makeAdmin();
+        $admin = $this->makeAdmin($career);
         $token = $this->token($admin);
 
         $created = $this->withToken($token)
@@ -261,7 +264,7 @@ class ScholarshipTutoringAuthorizationTest extends TestCase
         [$userB] = $this->makeStudent($career, 'TEST-AUT-002', 'Otro Estudiante');
 
         $scholarship = $this->makeScholarship($userA);
-        $admin = $this->makeAdmin();
+        $admin = $this->makeAdmin($career);
 
         $this->withToken($this->token($admin))
             ->putJson('/api/scholarships/' . $scholarship->id, [
@@ -394,7 +397,7 @@ class ScholarshipTutoringAuthorizationTest extends TestCase
     {
         $career = $this->career();
         [$studentUser] = $this->makeStudent($career, 'TEST-AUT-001', 'Estudiante Común');
-        $admin = $this->makeAdmin();
+        $admin = $this->makeAdmin($career);
         $token = $this->token($admin);
 
         $created = $this->withToken($token)
@@ -442,7 +445,7 @@ class ScholarshipTutoringAuthorizationTest extends TestCase
         [$userB] = $this->makeStudent($career, 'TEST-AUT-002', 'Otro Estudiante');
 
         $tutoring = $this->makeTutoring($userA);
-        $admin = $this->makeAdmin();
+        $admin = $this->makeAdmin($career);
 
         $this->withToken($this->token($admin))
             ->putJson('/api/tutorings/' . $tutoring->id, [
@@ -459,7 +462,7 @@ class ScholarshipTutoringAuthorizationTest extends TestCase
         $career = $this->career();
         [$userA] = $this->makeStudent($career, 'TEST-AUT-001', 'Estudiante Común');
         [$userB] = $this->makeStudent($career, 'TEST-AUT-002', 'Otro Estudiante');
-        $admin = $this->makeAdmin();
+        $admin = $this->makeAdmin($career);
 
         $ownScholarship = $this->makeScholarship($userA);
         $foreignScholarship = $this->makeScholarship($userB);

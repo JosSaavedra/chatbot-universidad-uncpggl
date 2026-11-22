@@ -8,10 +8,16 @@
  */
 $accounts = [];
 
-// Línea base de seguridad: estos seis carnés exigen QR + Google aunque la
-// variable GOOGLE_ACCOUNT_LINKS falte o esté incompleta. Los carnés declarados
-// en la variable se añaden a esta lista; nunca la reducen.
+// Exigir QR + Google aunque GOOGLE_ACCOUNT_LINKS falte o esté incompleta.
 $protectedCarnets = [
+    '2024-med-5837',
+    '2023-isi-9264',
+    '2024-adm-1748',
+    '2022-ici-8392',
+    '2025-enf-4621',
+    '2023-med-7056',
+
+    // Reservar los identificadores anteriores ante una restauración de SQLite.
     '2024-med-001',
     '2023-isi-001',
     '2024-adm-001',
@@ -68,6 +74,11 @@ if ($valid) {
 }
 
 return [
+    'email_accounts' => [
+        '2024-med-5837' => env('QR_EMAIL_2024_MED_5837'),
+        '2024-adm-1748' => env('QR_EMAIL_2024_ADM_1748'),
+        '2025-enf-4621' => env('QR_EMAIL_2025_ENF_4621'),
+    ],
     'protected_carnets' => array_values(array_unique($protectedCarnets)),
     'accounts' => $accounts,
     'accounts_present' => $present,

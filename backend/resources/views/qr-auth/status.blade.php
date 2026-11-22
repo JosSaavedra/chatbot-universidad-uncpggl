@@ -17,7 +17,9 @@
     <div class="done">
       <h1>{{ $title }}</h1>
       @if($status === 'approved')
-        <p>El acceso fue autorizado para el navegador que inició la solicitud. Puedes volver a la computadora.</p>
+        <p>El acceso fue autorizado para el navegador que inició la solicitud. Vuelve al chatbot para continuar.</p>
+      @elseif($status === 'email_sent')
+        <p>Abre el correo y usa el número de confirmación que muestra el chatbot.</p>
       @elseif($status === 'rejected')
         <p>Rechazaste la solicitud. No se creó ninguna sesión.</p>
       @elseif($status === 'expired')

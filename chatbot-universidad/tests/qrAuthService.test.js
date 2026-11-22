@@ -5,6 +5,8 @@ import {
   exchangeQr,
   getQrStatus,
   requestQr,
+  resolveApiUrl,
+  sendEmailApproval,
 } from "../src/services/qrAuthService.js";
 
 const originalFetch = globalThis.fetch;
@@ -26,6 +28,33 @@ afterEach(() => {
   calls = [];
 });
 
+test("el envío desde el celular usa la solicitud y el nonce del navegador", async () => {
+  globalThis.fetch = fakeFetch({ status: "email_sent" }, 202);
+  const requestId = "a".repeat(32);
+  const nonce = "b".repeat(64);
+
+  assert.deepEqual(await sendEmailApproval(requestId, nonce), { status: "email_sent" });
+  assert.match(calls[0].url, /\/qr-auth\/email\/send$/);
+  assert.equal(calls[0].options.method, "POST");
+  assert.equal(calls[0].options.headers["X-Approval-Nonce"], nonce);
+  assert.deepEqual(JSON.parse(calls[0].options.body), { request_id: requestId });
+});
+
+test("resolveApiUrl usa Render en producción y conserva localhost en desarrollo", () => {
+  assert.equal(
+    resolveApiUrl({ PROD: true, VITE_API_URL: "http://localhost:8000/api" }),
+    "https://chatbot-uncpggl-api.onrender.com/api",
+  );
+  assert.equal(
+    resolveApiUrl({ PROD: true }),
+    "https://chatbot-uncpggl-api.onrender.com/api",
+  );
+  assert.equal(
+    resolveApiUrl({ PROD: false, VITE_API_URL: "http://localhost:8000/api/" }),
+    "http://localhost:8000/api",
+  );
+});
+
 test("requestQr envía únicamente el carné", async () => {
   const expected = {
     request_id: "a".repeat(32),
@@ -36,20 +65,20 @@ test("requestQr envía únicamente el carné", async () => {
   };
   globalThis.fetch = fakeFetch(expected, 202);
 
-  const result = await requestQr("2024-MED-001");
+  const result = await requestQr("2024-MED-5837");
 
-  assert.deepEqual(result, { ...expected, carnet: "2024-MED-001" });
+  assert.deepEqual(result, { ...expected, carnet: "2024-MED-5837" });
   assert.equal(calls.length, 1);
   assert.match(calls[0].url, /\/api\/qr-auth\/request$/);
   assert.equal(calls[0].options.method, "POST");
-  assert.deepEqual(JSON.parse(calls[0].options.body), { carnet: "2024-MED-001" });
+  assert.deepEqual(JSON.parse(calls[0].options.body), { carnet: "2024-MED-5837" });
   assert.doesNotMatch(calls[0].options.body, /email|correo|google|password/i);
 });
 
 test("requestQr rechaza un enlace relativo antes de generar la imagen", async () => {
   globalThis.fetch = fakeFetch({ qr_url: "/acceso/qr/" + "c".repeat(64) }, 202);
 
-  await assert.rejects(requestQr("2024-MED-001"), /URL válida/);
+  await assert.rejects(requestQr("2024-MED-5837"), /URL válida/);
 });
 
 test("getQrStatus lleva el nonce en una cabecera, nunca en la URL", async () => {

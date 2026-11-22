@@ -5,7 +5,9 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Student;
 use App\Models\User;
+use App\Services\EmailQrApproval;
 use App\Services\LoginIdentity;
+use App\Services\QrLogin;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -70,19 +72,33 @@ class AuthController extends Controller
             throw ValidationException::withMessages(['carnet' => [self::INVALID_CREDENTIALS]]);
         }
 
+        $student = Student::where('user_id', $user->id)->first();
+        if ($student && QrLogin::requiresEmail($student->student_code)) {
+            if (! $request->filled('carnet') || $request->hasAny(['email', 'correo']) || $user->is_admin) {
+                throw ValidationException::withMessages(['carnet' => [self::INVALID_CREDENTIALS]]);
+            }
+            $email = EmailQrApproval::recipient($student->student_code);
+            abort_unless($email, 503, 'La verificación por correo no está disponible.');
+
+            return response()->json(['method' => 'email', 'carnet' => $student->student_code]
+                + QrLogin::issue($student->student_code, $student->id, [
+                    'method' => 'email',
+                    'email_binding_hash' => EmailQrApproval::binding($email, $user->password),
+                ]), 202);
+        }
+
         // Sesión única: los tokens anteriores se revocan sólo tras autenticar
         // correctamente (un intento fallido nunca invalida una sesión legítima).
         $token = DB::transaction(function () use ($user) {
             $current = User::whereKey($user->id)->lockForUpdate()->first();
-            if (!$current || $current->password !== $user->password || !$this->mayAuthenticate($current)) {
+            if (!$current || $current->password !== $user->password || !$this->mayAuthenticate($current)
+                || QrLogin::requiresEmail((string) Student::where('user_id', $current->id)->value('student_code'))) {
                 throw ValidationException::withMessages(['carnet' => [self::INVALID_CREDENTIALS]]);
             }
             $current->tokens()->delete();
 
             return $current->createToken('password-login')->plainTextToken;
         }, 3);
-
-        $student = Student::where('user_id', $user->id)->first();
 
         return response()->json([
             'user' => $user,
@@ -107,24 +123,20 @@ class AuthController extends Controller
     /**
      * Comprueba que la cuenta puede autenticarse con contraseña:
      *
-     *  - los administradores legítimos conservan su acceso;
      *  - una cuenta sin ficha de estudiante no accede;
-     *  - los carnés que exigen QR + Google no pueden evadirlo con contraseña;
+     *  - los carnés que exigen QR + Google no pueden evadirlo con contraseña,
+     *    incluso si la cuenta tiene el rol de administrador;
      *  - el estudiante debe estar activo.
      */
     private function mayAuthenticate(User $user): bool
     {
-        if ($user->is_admin) {
-            return true;
-        }
-
         $student = Student::where('user_id', $user->id)->first();
 
         if (! $student) {
             return false;
         }
 
-        if ($this->requiresQrGoogle($student)) {
+        if (! QrLogin::requiresEmail($student->student_code) && $this->requiresQrGoogle($student)) {
             return false;
         }
 

@@ -56,7 +56,11 @@ class CareerScheduleAuthorizationTest extends TestCase
 
     private function makeAdmin(): User
     {
-        return User::factory()->create(['name' => 'Administrador', 'is_admin' => true]);
+        $career = $this->career(['code' => 'ADM-CAREER-AUT']);
+        [$admin] = $this->makeStudent($career, '2024-ADM-CAR', 'Administrador');
+        $admin->update(['is_admin' => true]);
+
+        return $admin->fresh();
     }
 
     private function token(User $user): string

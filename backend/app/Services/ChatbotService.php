@@ -242,7 +242,7 @@ class ChatbotService
 
         // Coincidencia por CÓDIGO de carrera (p. ej. "CON-001"), cuando aparece
         // como token suelto. Se excluye el código que forma parte de un carné
-        // ("2024-CON-001"), que ya se resolvió antes como saludo.
+        // ("2024-CON-3189"), que ya se resolvió antes como saludo.
         if ($exact->isEmpty()) {
             $byCode = $this->careerCodeInMessage($message);
             if ($byCode !== null) {
@@ -400,14 +400,15 @@ class ChatbotService
 
     /**
      * Patrón de un carné estudiantil de la UNCPGGL: año (4 dígitos), código de
-     * carrera (2-4 letras) y número secuencial, p. ej. "2024-CON-001".
+     * carrera (2-4 letras) e identificador de cuatro dígitos, p. ej. "2024-CON-3189".
      * Admite minúsculas y espacios accidentales alrededor de los guiones.
+     * Reconoce también los formatos anteriores para protegerlos al procesar mensajes.
      */
-    private const CARNET_PATTERN = '/\b(\d{4})\s*-\s*([a-z]{2,4})\s*-\s*(\d{1,4})\b/iu';
+    private const CARNET_PATTERN = '/\b(\d{4})\s*-\s*([a-z]{2,4})\s*-\s*(\d{4}|\d{1,3})\b/iu';
 
     /**
      * Palabras de relleno que pueden acompañar a un carné sin cambiar su
-     * intención ("mi carné es 2024-CON-001"). Ya normalizadas (sin tildes).
+     * intención ("mi carné es 2024-CON-3189"). Ya normalizadas (sin tildes).
      *
      * @var array<int, string>
      */
@@ -527,8 +528,8 @@ class ChatbotService
 
     /**
      * Comprueba que, quitando el carné y palabras de relleno, no quede ninguna
-     * consulta. Así "2024-CON-001" o "Mi carné es 2024-CON-001" cuentan como
-     * carné, pero "2024-CON-001 ¿cuánto cuesta?" no.
+     * consulta. Así "2024-CON-3189" o "Mi carné es 2024-CON-3189" cuentan como
+     * carné, pero "2024-CON-3189 ¿cuánto cuesta?" no.
      */
     private function messageIsCarnetOnly(string $message, string $matched): bool
     {
@@ -572,7 +573,7 @@ class ChatbotService
     /**
      * Busca una carrera por su CÓDIGO cuando aparece como token suelto
      * (p. ej. "CON-001"). Se excluye el código que forma parte de un carné
-     * (p. ej. "2024-CON-001"): el lookbehind evita el match tras un guion/dígito.
+     * (p. ej. "2024-CON-3189"): el lookbehind evita el match tras un guion/dígito.
      */
     private function careerCodeInMessage(string $message): ?Career
     {

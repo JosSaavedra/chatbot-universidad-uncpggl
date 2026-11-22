@@ -22,6 +22,7 @@ Route::get('/auth/mode', fn () => [
 // `login` restringe los intentos por cuenta y por IP.
 Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:login');
 Route::prefix('qr-auth')->group(function () {
+    Route::post('/email/send', [QrAuthController::class, 'sendEmail'])->middleware('throttle:10,1,email-send:');
     Route::post('/request', [QrAuthController::class, 'request'])->middleware('throttle:10,1,qr-create:');
     Route::get('/status/{publicId}', [QrAuthController::class, 'status'])
         ->where('publicId', '[a-f0-9]{32}')->middleware('throttle:qr-poll');

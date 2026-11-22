@@ -71,7 +71,7 @@ test("el chat invitado no se transfiere y una respuesta tardía no restaura el h
   storage.set("chat_session_id:guest", JSON.stringify({ id: "invitado", guestToken: "prueba" }));
   acceptSession({
     token: "42|token-ficticio",
-    student: { carnet: "2024-CON-001" },
+    student: { carnet: "2024-CON-3189" },
     idle_minutes: 30,
     expires_at: new Date(Date.now() + 60_000).toISOString(),
   });

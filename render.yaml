@@ -24,8 +24,8 @@ services:
         value: stderr
       - key: LOG_LEVEL
         value: warning
-      - key: PHP_CLI_SERVER_WORKERS
-        value: "4"
+      # El contenedor usa Apache con mod_php. Render inyecta PORT y el
+      # arranque configura Apache para escuchar en ese puerto.
 
       - key: FRONTEND_URL
         value: https://chatbot-universidad.vercel.app
@@ -65,6 +65,9 @@ services:
       # registros, no escribe nada y nunca restablece contraseñas.
       - key: DEMO_SEED_ON_EMPTY
         value: "true"
+      # JSON privado con los hashes bcrypt de las cuatro cuentas tradicionales.
+      - key: DEMO_STUDENT_PASSWORD_HASHES
+        sync: false
 
       # QR + Google OIDC. GOOGLE_REDIRECT_URI debe coincidir exactamente con
       # el URI autorizado en Google Cloud Console.
@@ -86,17 +89,29 @@ services:
         value: https://www.googleapis.com/oauth2/v3/certs
       - key: GOOGLE_JWKS_CACHE_SECONDS
         value: "3600"
-      # JSON crudo, sin comillas simples externas. Debe contener los tres
-      # titulares y sus seis carnés: 2024-MED-001, 2023-ISI-001,
-      # 2024-ADM-001, 2022-ICI-001, 2025-ENF-001 y 2023-MED-002.
+      # JSON crudo con las vinculaciones de Google existentes.
       - key: GOOGLE_ACCOUNT_LINKS
         sync: false
       - key: QR_AUTH_TEST_OIDC_VERIFIER
         value: ""
 
-      # El acceso QR no envía correos.
+      # El mailer dedicado de aprobación usa Gmail API por HTTPS.
       - key: MAIL_MAILER
         value: log
+      - key: MAIL_FROM_ADDRESS
+        sync: false
+      - key: GMAIL_OAUTH_CLIENT_ID
+        sync: false
+      - key: GMAIL_OAUTH_CLIENT_SECRET
+        sync: false
+      - key: GMAIL_OAUTH_REFRESH_TOKEN
+        sync: false
+      - key: QR_EMAIL_2024_MED_5837
+        sync: false
+      - key: QR_EMAIL_2024_ADM_1748
+        sync: false
+      - key: QR_EMAIL_2025_ENF_4621
+        sync: false
 
       - key: GROQ_API_KEY
         sync: false

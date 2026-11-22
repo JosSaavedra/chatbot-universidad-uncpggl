@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Models\GooglePreauthorization;
 use App\Models\QrAuthRequest;
 use App\Models\Student;
+use App\Services\EmailQrApproval;
+use App\Services\QrLogin;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -26,8 +28,8 @@ class QrAuthController extends Controller
 
     private function expireIfNeeded(QrAuthRequest $request): QrAuthRequest
     {
-        if (in_array($request->status, ['pending', 'google_authenticated', 'approved'], true) && $request->expires_at->lte(now())) {
-            QrAuthRequest::whereKey($request->id)->where('status', $request->status)->update(['status' => 'expired']);
+        if (in_array($request->status, ['pending', 'email_sent', 'google_authenticated', 'approved'], true) && $request->expires_at->lte(now())) {
+            QrAuthRequest::whereKey($request->id)->where('status', $request->status)->update(['status' => 'expired', 'email_token_hash' => null]);
         }
 
         return $request->refresh();
@@ -51,42 +53,20 @@ class QrAuthController extends Controller
             'La identidad se verifica con Google desde tu teléfono.');
 
         $code = strtolower(trim($request->validate(['carnet' => 'required|string|max:40'])['carnet']));
-        $origin = rtrim((string) config('qr_auth.base_url'), '/');
-        $parts = parse_url($origin);
-        $allowedSchemes = app()->environment('production') ? ['https'] : ['http', 'https'];
-        abort_unless(filter_var($origin, FILTER_VALIDATE_URL) && is_array($parts)
-            && in_array($parts['scheme'] ?? '', $allowedSchemes, true)
-            && array_diff(array_keys($parts), ['scheme', 'host', 'port']) === [],
-            503, 'Configura una URL pública válida para el acceso QR. En producción debe usar HTTPS.');
-
         $studentId = Student::whereRaw('LOWER(student_code) = ?', [$code])
             ->where('status', 'active')->whereHas('user', fn ($user) => $user->where('is_admin', false))
             ->value('id');
-        $eligible = in_array($code, config('qr_auth.protected_carnets'), true);
+        $eligible = ! QrLogin::requiresEmail($code) && in_array($code, config('qr_auth.protected_carnets'), true);
 
-        $qrToken = bin2hex(random_bytes(32));
-        $clientNonce = bin2hex(random_bytes(32));
-        $confirmCode = (string) random_int(100000, 999999);
-        $expiresAt = now()->addMinutes(config('qr_auth.ttl_minutes'));
+        return response()->json(QrLogin::issue($code, $eligible ? ($studentId ?? QrAuthRequest::NO_STUDENT)
+            : QrAuthRequest::NO_STUDENT), 202);
+    }
 
-        $row = QrAuthRequest::create([
-            'student_id' => $eligible ? ($studentId ?? QrAuthRequest::NO_STUDENT) : QrAuthRequest::NO_STUDENT,
-            'public_id' => bin2hex(random_bytes(16)),
-            'qr_token_hash' => hash('sha256', $qrToken),
-            'client_hash' => hash('sha256', $clientNonce),
-            'confirm_code' => $confirmCode,
-            'carnet' => strtoupper($code),
-            'status' => 'pending',
-            'expires_at' => $expiresAt,
-        ]);
+    public function sendEmail(Request $request, EmailQrApproval $approval): JsonResponse
+    {
+        $approval->send($this->findForBrowser($request));
 
-        return response()->json([
-            'request_id' => $row->public_id,
-            'client_nonce' => $clientNonce,
-            'qr_url' => $origin.route('qr.scan', ['token' => $qrToken], false),
-            'confirm_code' => $confirmCode,
-            'expires_at' => $expiresAt->toISOString(),
-        ], 202);
+        return response()->json(['status' => 'email_sent'], 202);
     }
 
     public function status(Request $request, string $publicId): JsonResponse
@@ -112,24 +92,30 @@ class QrAuthController extends Controller
             abort_unless($locked->status === 'approved' && $locked->expires_at->gte(now()), 403,
                 'La solicitud ya fue utilizada o caducó.');
 
-            $link = GooglePreauthorization::where('google_sub', $locked->google_sub)->first();
-            abort_unless($link && ! $link->revoked_at && $link->allows($locked->carnet), 403,
-                'La vinculación con Google fue revocada. Inicia una nueva solicitud.');
-
             $student = Student::with('user')->find($locked->student_id);
-            abort_unless(
-                $student && $student->status === 'active' && $student->user && ! $student->user->is_admin
-                    && strcasecmp($student->student_code, $locked->carnet) === 0
-                    && in_array(strtolower($locked->carnet), config('qr_auth.protected_carnets'), true),
-                403,
-                'La cuenta de estudiante no está disponible.'
-            );
+            if ($locked->method === 'email') {
+                abort_unless(EmailQrApproval::matches($locked, $student), 403, 'La solicitud de acceso ya no es v?lida.');
+                $method = 'qr-email';
+            } else {
+                $link = GooglePreauthorization::where('google_sub', $locked->google_sub)->first();
+                abort_unless($link && ! $link->revoked_at && $link->allows($locked->carnet), 403,
+                    'La vinculaci?n con Google fue revocada. Inicia una nueva solicitud.');
+                abort_unless(
+                    $student && $student->status === 'active' && $student->user && ! $student->user->is_admin
+                        && strcasecmp($student->student_code, $locked->carnet) === 0
+                        && ! QrLogin::requiresEmail($locked->carnet)
+                        && in_array(strtolower($locked->carnet), config('qr_auth.protected_carnets'), true),
+                    403,
+                    'La cuenta de estudiante no est? disponible.'
+                );
+                $method = 'qr-google';
+            }
             abort_unless(QrAuthRequest::whereKey($locked->id)->where('status', 'approved')
                 ->where('expires_at', '>', now())
                 ->update(['status' => 'consumed', 'consumed_at' => now()]) === 1, 409);
 
             $student->user->tokens()->delete();
-            $token = $student->user->createToken('qr-google')->plainTextToken;
+            $token = $student->user->createToken($method)->plainTextToken;
 
             return response()->json([
                 'token' => $token,
@@ -148,11 +134,11 @@ class QrAuthController extends Controller
     {
         $row = $this->findForBrowser($request);
 
-        abort_unless(in_array($row->status, ['pending', 'google_authenticated'], true), 409,
+        abort_unless(in_array($row->status, ['pending', 'email_sent', 'google_authenticated'], true), 409,
             'Esta solicitud ya no puede cancelarse.');
 
-        abort_unless(QrAuthRequest::whereKey($row->id)->whereIn('status', ['pending', 'google_authenticated'])
-            ->update(['status' => 'cancelled', 'decided_at' => now()]) === 1, 409);
+        abort_unless(QrAuthRequest::whereKey($row->id)->whereIn('status', ['pending', 'email_sent', 'google_authenticated'])
+            ->update(['status' => 'cancelled', 'decided_at' => now(), 'email_token_hash' => null]) === 1, 409);
 
         return response()->json(['message' => 'Solicitud cancelada.']);
     }

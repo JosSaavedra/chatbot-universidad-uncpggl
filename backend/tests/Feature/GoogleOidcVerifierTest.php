@@ -93,7 +93,14 @@ class GoogleOidcVerifierTest extends TestCase
 
     private function token(array $overrides = [], ?string $key = null): string
     {
-        return JWT::encode($this->claims($overrides), $key ?? $this->privateKey, 'RS256', 'clave-prueba');
+        $claims = $this->claims($overrides);
+        foreach ($overrides as $field => $value) {
+            if ($value === null) {
+                unset($claims[$field]);
+            }
+        }
+
+        return JWT::encode($claims, $key ?? $this->privateKey, 'RS256', 'clave-prueba');
     }
 
     public function test_accepts_a_well_formed_id_token_and_normalizes_the_email(): void
@@ -128,6 +135,10 @@ class GoogleOidcVerifierTest extends TestCase
             'nonce ajeno' => ['nonce', 'nonce', 'El ID Token no corresponde a esta solicitud.'],
             'correo sin verificar' => ['verified', 'email_verified', 'La cuenta de Google no tiene el correo verificado.'],
             'expirado' => ['expired', 'exp', 'El ID Token de Google no es válido.'],
+            'sin exp' => ['sin exp', 'missing_exp', 'El ID Token de Google no es válido.'],
+            'sin iat' => ['sin iat', 'missing_iat', 'El ID Token de Google no es válido.'],
+            'iat en el futuro' => ['iat futuro', 'iat_future', 'El ID Token de Google no es válido.'],
+            'iat posterior a exp' => ['iat posterior a exp', 'iat_after_exp', 'El ID Token de Google no es válido.'],
             'sin sub' => ['subject', 'sub', 'La identidad de Google está incompleta.'],
         ];
     }
@@ -142,6 +153,10 @@ class GoogleOidcVerifierTest extends TestCase
             'nonce' => ['nonce' => 'nonce-de-otra-solicitud'],
             'email_verified' => ['email_verified' => false],
             'exp' => ['exp' => time() - 10],
+            'missing_exp' => ['exp' => null],
+            'missing_iat' => ['iat' => null],
+            'iat_future' => ['iat' => time() + 300],
+            'iat_after_exp' => ['iat' => time() + 600, 'exp' => time() + 300],
             'sub' => ['sub' => ''],
             default => [],
         };

@@ -39,6 +39,18 @@ class GoogleOidcVerifier
             throw new RuntimeException('El ID Token de Google no es válido.');
         }
 
+        // `exp` e `iat` son obligatorios: php-jwt sólo comprueba `exp` cuando
+        // el claim existe, así que un token sin ellos debe rechazarse aquí.
+        $now = time();
+        $issuedAt = $claims['iat'] ?? null;
+        $expiresAt = $claims['exp'] ?? null;
+        if (! is_int($issuedAt) || ! is_int($expiresAt)
+            || $issuedAt > $now + 60
+            || $expiresAt <= $now
+            || $expiresAt <= $issuedAt) {
+            throw new RuntimeException('El ID Token de Google no es válido.');
+        }
+
         $issuer = $claims['iss'] ?? null;
         if (!in_array($issuer, ['https://accounts.google.com', 'accounts.google.com'], true)) {
             throw new RuntimeException('El emisor del ID Token no es Google.');

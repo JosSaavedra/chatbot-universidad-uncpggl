@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\QrLogin;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 
@@ -21,7 +22,8 @@ class GooglePreauthorization extends Model
     public static function invalidateAccess(array $carnets): void
     {
         $students = Student::whereIn(DB::raw('LOWER(student_code)'), $carnets)
-            ->get(['id', 'user_id']);
+            ->get(['id', 'user_id', 'student_code'])
+            ->reject(fn (Student $student) => QrLogin::requiresEmail($student->student_code));
 
         (new User)->tokens()->getRelated()->newQuery()
             ->where('tokenable_type', (new User)->getMorphClass())
@@ -29,6 +31,7 @@ class GooglePreauthorization extends Model
             ->delete();
 
         QrAuthRequest::whereIn('student_id', $students->modelKeys())
+            ->where('method', 'google')
             ->whereIn('status', ['pending', 'google_authenticated', 'approved'])
             ->update(['status' => 'cancelled', 'decided_at' => now()]);
     }

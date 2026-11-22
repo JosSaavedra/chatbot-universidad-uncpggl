@@ -7,6 +7,7 @@ import {
   getQrStatus,
   isAbsoluteQrUrl,
   requestQr,
+  sendEmailApproval,
 } from "../../services/qrAuthService";
 import "./LoginModal.css";
 
@@ -17,16 +18,10 @@ function secondsLeft(expiresAt) {
   return Number.isFinite(seconds) && seconds > 0 ? seconds : 0;
 }
 
-/**
- * Solicitudes protegidas: QR + Google OIDC.
- * Acceso local: carné (demo) o correo (institucional) + contraseña.
- * No hay passkeys ni aprobación por correo.
- */
 function LoginModal({ onClose, onSuccess }) {
   const [carnet, setCarnet] = useState("");
   const [password, setPassword] = useState("");
   const [mode, setMode] = useState(null);
-  const [useQr, setUseQr] = useState(false);
   const [request, setRequest] = useState(null);
   const [remoteStatus, setRemoteStatus] = useState("pending");
   const [qrImage, setQrImage] = useState("");
@@ -40,8 +35,11 @@ function LoginModal({ onClose, onSuccess }) {
   callbacks.current = { onClose, onSuccess };
 
   const demo = mode === "demo";
-  const localLogin = !useQr;
   const waiting = Boolean(request);
+  const emailApproval = request?.method === "email";
+  const emailSent = remoteStatus === "email_sent";
+  const mobileEmail = emailApproval && window.matchMedia("(pointer: coarse)").matches;
+  const qrUrl = mobileEmail || (emailApproval && emailSent) ? null : request?.qr_url;
 
   useEffect(() => {
     let active = true;
@@ -61,7 +59,6 @@ function LoginModal({ onClose, onSuccess }) {
           setRequest(saved);
         } else {
           sessionStorage.removeItem(QR_KEY);
-          setUseQr(true);
         }
       }
     } catch { /* Sin sesión, sólo se pierde la espera. */ }
@@ -77,22 +74,23 @@ function LoginModal({ onClose, onSuccess }) {
   }, []);
 
   useEffect(() => {
-    if (!request?.qr_url) {
+    if (!qrUrl) {
       setQrImage("");
       return undefined;
     }
     let active = true;
-    QRCode.toDataURL(request.qr_url, {
-      width: 240,
-      margin: 1,
-      color: { dark: "#0f172a", light: "#ffffff" },
+    QRCode.toDataURL(qrUrl, {
+      width: 320,
+      margin: 4,
+      errorCorrectionLevel: "M",
+      color: { dark: "#000000", light: "#FFFFFF" },
     }).then((url) => {
       if (active) setQrImage(url);
     }).catch(() => {
       if (active) setError("No se pudo generar el código QR. Intenta de nuevo.");
     });
     return () => { active = false; };
-  }, [request?.qr_url]);
+  }, [qrUrl]);
 
   useEffect(() => {
     if (!request) return undefined;
@@ -132,12 +130,13 @@ function LoginModal({ onClose, onSuccess }) {
           return;
         }
 
-        if (["rejected", "cancelled", "expired", "consumed"].includes(data.status)) {
+        if (["rejected", "cancelled", "expired", "consumed", "delivery_failed"].includes(data.status)) {
           const messages = {
-            rejected: "Acceso rechazado desde el teléfono. No se creó ninguna sesión.",
-            cancelled: "Solicitud cancelada. Genera un QR nuevo si deseas continuar.",
-            expired: "El código QR caducó. Genera uno nuevo.",
-            consumed: "Esta solicitud ya se utilizó. Genera un QR nuevo.",
+            rejected: "Acceso rechazado.",
+            cancelled: "Solicitud cancelada. Vuelve a iniciar el acceso.",
+            expired: "La solicitud caducó. Vuelve a iniciar el acceso.",
+            consumed: "Esta solicitud ya se utilizó. Vuelve a iniciar el acceso.",
+            delivery_failed: "No se pudo enviar el correo. Vuelve a iniciar el acceso.",
           };
           setError(messages[data.status]);
           clear();
@@ -187,6 +186,25 @@ function LoginModal({ onClose, onSuccess }) {
     }
   };
 
+  const handleSendEmail = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const result = await sendEmailApproval(request.request_id, request.client_nonce);
+      setRemoteStatus(result.status);
+    } catch (err) {
+      setError(err.message || "No se pudo enviar el correo.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const waitForApproval = (created) => {
+    try { sessionStorage.setItem(QR_KEY, JSON.stringify(created)); } catch { /* Sólo memoria. */ }
+    setRemoteStatus("pending");
+    setRequest(created);
+  };
+
   const handleSubmit = async (event) => {
     event.preventDefault();
     const value = carnet.trim();
@@ -196,13 +214,9 @@ function LoginModal({ onClose, onSuccess }) {
       return;
     }
 
-    if (localLogin && !password) {
-      setError("Ingresa tu contraseña para iniciar sesión.");
-      return;
-    }
-
-    // La contraseña sale del estado del formulario antes de la petición y
-    // nunca se conserva en memoria ni se guarda en el navegador.
+    // Sin contraseña se habilita únicamente la ceremonia Google existente.
+    // El correo siempre exige contraseña: Laravel lo valida en /api/login
+    // antes de devolver el QR, sin crear todavía la sesión.
     const submittedPassword = password;
     setPassword("");
 
@@ -211,15 +225,16 @@ function LoginModal({ onClose, onSuccess }) {
     setNotice("");
 
     try {
-      if (useQr) {
-        const created = await requestQr(value);
-        try { sessionStorage.setItem(QR_KEY, JSON.stringify(created)); } catch { /* Sólo memoria. */ }
-        setRemoteStatus("pending");
-        setRequest(created);
-        setNotice("Escanea el QR con tu teléfono y confirma con tu cuenta Google.");
+      if (!submittedPassword) {
+        waitForApproval({ ...(await requestQr(value)), method: "google" });
         return;
       }
+
       const result = await loginByCarnet(value, submittedPassword);
+      if (result.method === "email") {
+        waitForApproval(result);
+        return;
+      }
       callbacks.current.onSuccess?.(result);
       callbacks.current.onClose?.();
     } catch (err) {
@@ -230,14 +245,18 @@ function LoginModal({ onClose, onSuccess }) {
   };
 
   const description = waiting
-    ? "Esperando autorización. Abre el QR en tu teléfono, entra con Google y escribe el número de confirmación."
+    ? emailApproval
+      ? emailSent
+        ? "Abre el correo de verificación y escribe el número que ves aquí para confirmar el acceso."
+        : mobileEmail
+          ? "Continúa para enviar la solicitud al correo vinculado a tu carné."
+          : "Escanea el QR con tu teléfono para enviar la solicitud al correo vinculado a tu carné."
+      : "Abre el QR en tu teléfono, entra con Google y escribe el número de confirmación."
     : !mode
       ? "Consultando el modo de acceso…"
-      : useQr
-        ? "Ingresa tu carné para verificar tu identidad con Google desde el teléfono."
-        : demo
-          ? "Ingresa tu carné o correo de demostración y tu contraseña."
-          : "Ingresa con el carné o correo y la contraseña de tu cuenta.";
+      : demo
+        ? "Usa tu carné actualizado o correo de demostración y tu contraseña. Si tu cuenta usa Google, deja la contraseña vacía y pulsa Ingresar; si usa correo, ingresa tu contraseña."
+        : "Ingresa con tu carné o correo y contraseña. Si tu cuenta usa Google, deja la contraseña vacía y pulsa Ingresar; si usa correo, ingresa tu contraseña.";
 
   const statusLabel = remoteStatus === "google_authenticated"
     ? "Identidad verificada · esperando tu confirmación"
@@ -273,28 +292,24 @@ function LoginModal({ onClose, onSuccess }) {
             required
             value={carnet}
             onChange={(event) => setCarnet(event.target.value)}
-            placeholder={useQr ? "Código de carné" : "Carné o correo"}
-            aria-label={useQr ? "Código de carné" : "Carné o correo"}
+            placeholder="Carné o correo"
+            maxLength={255}
+            aria-label="Carné o correo"
             autoComplete="off"
             spellCheck="false"
             autoFocus
           />
-          {localLogin && <input
+          <input
             className="login-input"
             type="password"
-            required
             autoComplete="current-password"
             aria-label="Contraseña"
             placeholder="Contraseña"
             value={password}
             onChange={(event) => setPassword(event.target.value)}
-          />}
+          />
           <button className="login-submit" type="submit" disabled={loading}>
-            {loading
-              ? "Verificando…"
-              : useQr
-                ? "Ingresar con QR"
-                : "Ingresar"}
+            {loading ? "Verificando…" : "Ingresar"}
           </button>
         </form>}
 
@@ -303,9 +318,14 @@ function LoginModal({ onClose, onSuccess }) {
             <span className="qr-status">{statusLabel}</span>
             <span className="qr-timer">{Math.floor(remaining / 60)}:{String(remaining % 60).padStart(2, "0")}</span>
           </div>
-          <div className="qr-image-wrap">
+          {qrUrl && <div className="qr-image-wrap">
             {qrImage ? <img src={qrImage} alt="Código QR para autorizar el acceso" /> : <span>Generando QR…</span>}
-          </div>
+          </div>}
+          {mobileEmail && !emailSent && (
+            <button className="login-submit" type="button" onClick={handleSendEmail} disabled={loading}>
+              Continuar con la verificación
+            </button>
+          )}
           <p className="qr-code-label">Número de confirmación</p>
           <div className="qr-code" data-testid="confirmation-code">{request.confirm_code}</div>
           <p className="qr-carnet">Carné: <strong>{request.carnet}</strong></p>
@@ -316,23 +336,7 @@ function LoginModal({ onClose, onSuccess }) {
 
         {error && <div className="login-error">{error}</div>}
         {notice && <p role="status">{notice}</p>}
-        {error && request === null && useQr && (
-          <button className="qr-cancel" type="button" onClick={resetQr}>Generar QR nuevo</button>
-        )}
 
-        {mode && !waiting && (
-          <button className="qr-cancel" type="button" disabled={loading} onClick={() => {
-            setUseQr(!useQr);
-            setPassword("");
-            setError(null);
-          }}>
-            {useQr ? "Ingresar con contraseña" : "Usar QR con Google"}
-          </button>
-        )}
-
-        {demo && <p className="login-hint">
-          Para la demo tradicional prueba con <code>2024-CON-001</code> y la contraseña establecida por la administración. Las cuentas protegidas usan QR con Google.
-        </p>}
       </div>
     </div>
   );

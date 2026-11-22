@@ -1,4 +1,5 @@
 # Backend
+/backend/storage/private/
 /backend/vendor/
 /backend/node_modules/
 /backend/.env
@@ -46,6 +47,9 @@ Thumbs.db
 
 # Variables de entorno y archivos de configuración
 .env*
+client_secret*.json
+gmail-oauth*.json
+gmail-oauth*.env
 # Las plantillas de ejemplo SÍ deben versionarse (sin credenciales)
 !**/.env.example
 !**/.env.*.example

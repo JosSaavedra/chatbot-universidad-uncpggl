@@ -1,4 +1,4 @@
-"""Regresión HTTP: los seis carnés protegidos sólo usan QR + Google.
+"""Regresión HTTP: los seis carnés protegidos rechazan las vías antiguas.
 
 Comprueba que las vías antiguas (carné, contraseña, passkeys, aprobación por
 correo) ya no emiten sesión y que la única ruta disponible es QR. No depende
@@ -33,17 +33,17 @@ def main():
     backend = Path(__file__).resolve().parents[1]
     php = subprocess.check_output([shutil.which("php"), "-r", "echo PHP_BINARY;"]).decode().strip()
     accounts = [
-        {"owner": "owner-one", "carnets": "2024-MED-001,2023-ISI-001", "email": "owner-one@example.test"},
-        {"owner": "owner-two", "carnets": "2024-ADM-001,2022-ICI-001", "email": "owner-two@example.test"},
-        {"owner": "owner-three", "carnets": "2025-ENF-001,2023-MED-002", "email": "owner-three@example.test"},
+        {"owner": "owner-one", "carnets": "2024-MED-5837,2023-ISI-9264", "email": "owner-one@example.test"},
+        {"owner": "owner-two", "carnets": "2024-ADM-1748,2022-ICI-8392", "email": "owner-two@example.test"},
+        {"owner": "owner-three", "carnets": "2025-ENF-4621,2023-MED-7056", "email": "owner-three@example.test"},
     ]
     protected = {
-        "2024-MED-001": "estudiante01@example.com",
-        "2023-ISI-001": "estudiante02@example.com",
-        "2024-ADM-001": "estudiante03@example.com",
-        "2022-ICI-001": "estudiante04@example.com",
-        "2025-ENF-001": "estudiante05@example.com",
-        "2023-MED-002": "estudiante06@example.com",
+        "2024-MED-5837": "estudiante01@example.com",
+        "2023-ISI-9264": "estudiante02@example.com",
+        "2024-ADM-1748": "estudiante03@example.com",
+        "2022-ICI-8392": "estudiante04@example.com",
+        "2025-ENF-4621": "estudiante05@example.com",
+        "2023-MED-7056": "estudiante06@example.com",
     }
     personal_emails = [account["email"] for account in accounts]
 
@@ -127,7 +127,7 @@ def main():
             removed = subprocess.run([php, "artisan", "passkey:activar", carnet],
                                      cwd=backend, env=env, capture_output=True)
             assert removed.returncode != 0, carnet
-            print(carnet, "OK: sólo QR + Google; vías antiguas cerradas")
+            print(carnet, "OK: vías antiguas cerradas")
 
 
 if __name__ == "__main__":

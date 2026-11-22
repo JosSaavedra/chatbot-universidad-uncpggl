@@ -31,7 +31,7 @@ ROOT = Path(__file__).resolve().parents[1]
 BACKEND = ROOT
 FRONTEND = ROOT.parent / "chatbot-universidad"
 WORK = BACKEND / "storage" / "framework" / "testing" / "browser-qr"
-CARNET = "2024-MED-001"
+CARNET = "2023-ISI-9264"
 CLIENT_ID = "browser-test.apps.googleusercontent.com"
 LARAVEL = "http://127.0.0.1:8443"
 CALLBACK = f"{LARAVEL}/auth/google/callback"
@@ -151,17 +151,17 @@ def main() -> None:
         {
             "owner": "jose",
             "email": "owner-one@example.com",
-            "carnets": "2024-MED-001,2023-ISI-001",
+            "carnets": "2024-MED-5837,2023-ISI-9264",
         },
         {
             "owner": "cesar",
             "email": "owner-two@example.com",
-            "carnets": "2024-ADM-001,2022-ICI-001",
+            "carnets": "2024-ADM-1748,2022-ICI-8392",
         },
         {
             "owner": "rodiver",
             "email": "owner-three@example.com",
-            "carnets": "2025-ENF-001,2023-MED-002",
+            "carnets": "2025-ENF-4621,2023-MED-7056",
         },
     ]
     env = os.environ.copy()
@@ -258,12 +258,11 @@ def main() -> None:
                 page.get_by_role("button", name="Iniciar sesión").click()
                 dialog = page.get_by_role("dialog")
                 local_id = dialog.get_by_role("textbox", name="Carné o correo")
-                for identifier in ("2024-CON-001", "estudiante07@example.com"):
+                for identifier in ("2024-CON-3189", "estudiante07@example.com"):
                     local_id.fill(identifier)
                     assert local_id.evaluate("(input) => input.checkValidity()"), identifier
-                dialog.get_by_role("button", name="Usar QR con Google").click()
-                dialog.locator("input.login-input").first.fill(CARNET)
-                dialog.get_by_role("button", name="Ingresar con QR").click()
+                dialog.get_by_role("textbox", name="Carné o correo").fill(CARNET)
+                dialog.get_by_role("button", name="Ingresar", exact=True).click()
                 dialog.locator(".qr-status").wait_for(timeout=15000)
 
                 assert captured, "React no llamó a /api/qr-auth/request"

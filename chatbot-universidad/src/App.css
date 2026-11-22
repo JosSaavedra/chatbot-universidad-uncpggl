@@ -566,6 +566,11 @@ html, body, #root {
   }
 }
 
+/* Cuando está en modo claro, se usa negrita para mejor legibilidad. */
+[data-theme="light"] {
+  font-weight: bold;
+}
+
 /* La etiqueta del tema es más larga y se oculta antes para no apretar el
    encabezado en tabletas y móviles. */
 @media (max-width: 767px) {

@@ -37,7 +37,7 @@ class StudentAccessTest extends TestCase
     {
         $this->seed();
         config(['student_access.demo' => true]);
-        $student = Student::where('student_code', '2024-CON-001')->firstOrFail();
+        $student = Student::where('student_code', '2024-CON-3189')->firstOrFail();
         $receiptId = $student->payments()->firstOrFail()->id;
         $identity = http_build_query(['user_id' => $student->user_id, 'carnet' => $student->student_code]);
         $privatePaths = [
@@ -68,7 +68,12 @@ class StudentAccessTest extends TestCase
     public function test_all_ten_demo_accounts_receive_only_their_own_records(): void
     {
         $this->seed();
-        config(['student_access.demo' => true]);
+        $emailAccounts = [
+            '2024-med-5837' => 'one@example.com',
+            '2024-adm-1748' => 'two@example.com',
+            '2025-enf-4621' => 'three@example.com',
+        ];
+        config(['student_access.demo' => true, 'qr_auth.email_accounts' => $emailAccounts]);
         $this->provisionPasswords();
         $students = Student::with('payments')->get();
         $this->assertCount(10, $students);
@@ -78,9 +83,13 @@ class StudentAccessTest extends TestCase
                 'carnet' => $student->student_code,
                 'password' => self::PASSWORD,
             ]);
-            if (in_array(strtolower($student->student_code), config('qr_auth.protected_carnets'), true)) {
-                // Los carnés protegidos exigen QR + Google: la contraseña no
-                // es un método alternativo válido.
+            $carnet = strtolower($student->student_code);
+            if (isset($emailAccounts[$carnet])) {
+                $login->assertAccepted()->assertJsonPath('method', 'email')->assertJsonMissingPath('token');
+                $this->assertTrue($student->user->tokens()->doesntExist());
+                // EmailQrAuthTest cubre el canje. Este token prepara las consultas de aislamiento.
+                $token = $student->user->createToken('qr-email')->plainTextToken;
+            } elseif (in_array($carnet, config('qr_auth.protected_carnets'), true)) {
                 $login->assertUnprocessable();
                 // La ceremonia completa se prueba en QrGoogleAuthTest.
                 $token = $student->user->createToken('qr-google')->plainTextToken;
@@ -118,7 +127,7 @@ class StudentAccessTest extends TestCase
     {
         $this->seed();
         $this->provisionPasswords();
-        $s = Student::with('user')->where('student_code', '2024-CON-001')->firstOrFail();
+        $s = Student::with('user')->where('student_code', '2024-CON-3189')->firstOrFail();
         $receiptId = $s->payments()->firstOrFail()->id;
         $login = fn () => $this->postJson('/api/login', [
             'carnet' => $s->student_code,

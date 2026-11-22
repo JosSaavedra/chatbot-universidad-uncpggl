@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\GooglePreauthorization;
 use App\Models\QrAuthRequest;
 use App\Models\Student;
+use App\Services\QrLogin;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Laravel\Socialite\Facades\Socialite;
@@ -41,7 +42,7 @@ class QrApprovalController extends Controller
 
     private function findByToken(string $token): ?QrAuthRequest
     {
-        return QrAuthRequest::where('qr_token_hash', hash('sha256', $token))->first();
+        return QrAuthRequest::where('method', 'google')->where('qr_token_hash', hash('sha256', $token))->first();
     }
 
     private function expire(QrAuthRequest $row): QrAuthRequest

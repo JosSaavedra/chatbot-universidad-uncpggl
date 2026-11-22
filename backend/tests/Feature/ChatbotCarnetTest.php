@@ -15,7 +15,7 @@ use Tests\TestCase;
 /**
  * PROBLEMA 1 — Reconocimiento del carné estudiantil.
  *
- * Un carné (p. ej. "2024-CON-001") debe reconocerse como identificación del
+ * Un carné (p. ej. "2024-CON-3189") debe reconocerse como identificación del
  * estudiante sin confundirlo con un código de carrera. El saludo con nombre
  * sólo se genera para el dueño autenticado del carné.
  */
@@ -39,9 +39,9 @@ class ChatbotCarnetTest extends TestCase
         }
 
         $students = [
-            ['name' => 'Gabriela Castillo', 'email' => 'estudiante11@example.com', 'code' => 'CON-001', 'student_code' => '2024-CON-001'],
-            ['name' => 'María José Téllez', 'email' => 'estudiante12@example.com', 'code' => 'MED-001', 'student_code' => '2024-MED-001'],
-            ['name' => 'Carlos Mendoza',    'email' => 'estudiante13@example.com', 'code' => 'ISI-001', 'student_code' => '2023-ISI-001'],
+            ['name' => 'Gabriela Castillo', 'email' => 'estudiante11@example.com', 'code' => 'CON-001', 'student_code' => '2024-CON-3189'],
+            ['name' => 'María José Téllez', 'email' => 'estudiante12@example.com', 'code' => 'MED-001', 'student_code' => '2024-MED-5837'],
+            ['name' => 'Carlos Mendoza',    'email' => 'estudiante13@example.com', 'code' => 'ISI-001', 'student_code' => '2023-ISI-9264'],
         ];
 
         foreach ($students as $s) {
@@ -68,7 +68,7 @@ class ChatbotCarnetTest extends TestCase
 
     public function test_the_owner_can_receive_a_personalized_greeting(): void
     {
-        $reply = $this->service()->processQuery('2024-CON-001', $this->owner()->id);
+        $reply = $this->service()->processQuery('2024-CON-3189', $this->owner()->id);
 
         $this->assertSame('carnet_greeting', $reply['intent']);
         $this->assertStringContainsString('Gabriela Castillo', $reply['text']);
@@ -77,7 +77,7 @@ class ChatbotCarnetTest extends TestCase
 
     public function test_carnet_greeting_matches_the_test_matrix(): void
     {
-        foreach (['2024-MED-001', '2023-ISI-001'] as $carnet) {
+        foreach (['2024-MED-5837', '2023-ISI-9264'] as $carnet) {
             $reply = $this->service()->processQuery($carnet, $this->owner()->id);
             $this->assertSame('carnet_not_found', $reply['intent']);
             $this->assertStringNotContainsString('María José Téllez', $reply['text']);
@@ -87,7 +87,7 @@ class ChatbotCarnetTest extends TestCase
 
     public function test_carnet_accepts_lowercase_and_accidental_spaces(): void
     {
-        foreach (['2024-con-001', '2024 - CON - 001', '  2024-CON-001  '] as $input) {
+        foreach (['2024-con-3189', '2024 - CON - 3189', '  2024-CON-3189  '] as $input) {
             $this->assertSame(
                 'carnet_greeting',
                 $this->service()->processQuery($input, $this->owner()->id)['intent'],
@@ -98,7 +98,7 @@ class ChatbotCarnetTest extends TestCase
 
     public function test_carnet_with_lead_in_phrase_is_recognized(): void
     {
-        foreach (['Mi carné es 2024-CON-001', 'mi carnet: 2024-CON-001', 'Hola, mi carné es 2024-con-001'] as $input) {
+        foreach (['Mi carné es 2024-CON-3189', 'mi carnet: 2024-CON-3189', 'Hola, mi carné es 2024-con-3189'] as $input) {
             $reply = $this->service()->processQuery($input, $this->owner()->id);
             $this->assertSame('carnet_greeting', $reply['intent'], "Falló para: {$input}");
             $this->assertStringContainsString('Gabriela Castillo', $reply['text']);
@@ -107,7 +107,7 @@ class ChatbotCarnetTest extends TestCase
 
     public function test_unknown_carnet_is_neutral_and_reveals_no_identity(): void
     {
-        $reply = $this->service()->processQuery('2024-XXX-999');
+        $reply = $this->service()->processQuery('2024-XXX-9876');
 
         $this->assertSame('carnet_not_found', $reply['intent']);
         $this->assertStringNotContainsString('Gabriela', $reply['text']);
@@ -117,8 +117,8 @@ class ChatbotCarnetTest extends TestCase
 
     public function test_carnet_shows_no_cards(): void
     {
-        $this->assertNull($this->service()->chatSuggestions('2024-CON-001'));
-        $this->assertNull($this->service()->chatSuggestions('Mi carné es 2024-MED-001'));
+        $this->assertNull($this->service()->chatSuggestions('2024-CON-3189'));
+        $this->assertNull($this->service()->chatSuggestions('Mi carné es 2024-MED-5837'));
     }
 
     public function test_career_code_is_recognized_when_it_is_not_a_carnet(): void
@@ -134,18 +134,18 @@ class ChatbotCarnetTest extends TestCase
     public function test_carnet_with_additional_question_is_not_treated_as_carnet_only(): void
     {
         // Con una pregunta adicional NO se secuestra como saludo.
-        $this->assertFalse($this->service()->isCarnetMessage('2024-CON-001 ¿cuánto cuesta?'));
-        $this->assertTrue($this->service()->isCarnetMessage('2024-CON-001'));
+        $this->assertFalse($this->service()->isCarnetMessage('2024-CON-3189 ¿cuánto cuesta?'));
+        $this->assertTrue($this->service()->isCarnetMessage('2024-CON-3189'));
     }
 
     public function test_carnet_greeting_name_is_not_sent_to_ai_memory(): void
     {
         // El nombre del saludo no debe viajar a la IA en la ventana de memoria.
-        $greeting = $this->service()->processQuery('2024-CON-001', $this->owner()->id)['text'];
+        $greeting = $this->service()->processQuery('2024-CON-3189', $this->owner()->id)['text'];
         $this->assertStringContainsString('Gabriela Castillo', $greeting);
 
         $history = [
-            ['role' => 'user', 'content' => '2024-CON-001', 'data' => null],
+            ['role' => 'user', 'content' => '2024-CON-3189', 'data' => null],
             ['role' => 'bot', 'content' => $greeting, 'data' => null],
         ];
 
@@ -169,9 +169,9 @@ class ChatbotCarnetTest extends TestCase
         Http::fake(['*' => Http::response(['choices' => [['message' => ['content' => 'no usar']]]], 200)]);
 
         $response = $this->postJson('/api/chat', [
-            'message'    => '2024-CON-001',
+            'message'    => '2024-CON-3189',
             'user_id' => $this->owner()->id,
-            'carnet' => '2024-CON-001',
+            'carnet' => '2024-CON-3189',
         ]);
 
         $response->assertOk()
@@ -189,7 +189,7 @@ class ChatbotCarnetTest extends TestCase
     {
         $owner = $this->owner();
         $conversation = Conversation::create(['session_id' => 'legacy-demo', 'title' => 'Consulta']);
-        $greeting = $this->service()->processQuery('2024-CON-001', $owner->id)['text'];
+        $greeting = $this->service()->processQuery('2024-CON-3189', $owner->id)['text'];
 
         $conversation->messages()->create(['role' => 'bot', 'content' => $greeting]);
         Message::create([

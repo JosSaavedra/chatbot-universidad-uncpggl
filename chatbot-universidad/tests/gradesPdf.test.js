@@ -12,7 +12,7 @@ import { buildScheduleDocumentHtml } from "../src/utils/pdfExport.js";
 const sample = {
   student: {
     name: "Gabriela Castillo",
-    carnet: "2024-CON-001",
+    carnet: "2024-CON-3189",
     career: "Contabilidad Pública y Finanzas",
     year_of_study: 2,
   },
@@ -64,7 +64,7 @@ test("incluye universidad, título, estudiante, carné y carrera", () => {
   assert.ok(html.includes(UNIVERSITY_NAME));
   assert.ok(html.includes(REPORT_TITLE));
   assert.ok(html.includes("Gabriela Castillo"));
-  assert.ok(html.includes("2024-CON-001"));
+  assert.ok(html.includes("2024-CON-3189"));
   assert.ok(html.includes("Contabilidad Pública y Finanzas"));
   assert.ok(html.includes("Fecha de generación"));
   assert.ok(html.includes("2025 · I"));

@@ -40,7 +40,7 @@ test("el acceso local siempre envía carné y contraseña", async () => {
   globalThis.fetch = fakeFetch({ errors: { carnet: ["Las credenciales no son correctas."] } }, 422);
 
   await assert.rejects(
-    loginByCarnet("2024-CON-001", "ClaveIndividual#2026"),
+    loginByCarnet("2024-CON-3189", "ClaveIndividual#2026"),
     /Las credenciales no son correctas\./,
   );
 
@@ -48,7 +48,7 @@ test("el acceso local siempre envía carné y contraseña", async () => {
   assert.match(calls[0].url, /\/login$/);
   assert.doesNotMatch(calls[0].url, /login\/carnet/);
   assert.deepEqual(JSON.parse(calls[0].options.body), {
-    carnet: "2024-CON-001",
+    carnet: "2024-CON-3189",
     password: "ClaveIndividual#2026",
   });
 });
@@ -64,10 +64,21 @@ test("el acceso institucional envía correo y contraseña", async () => {
   });
 });
 
+test("la respuesta de verificación por correo deja la sesión sin autenticar", async () => {
+  const storage = fakeStorage();
+  globalThis.localStorage = storage;
+  const pending = { method: "email", request_id: "a".repeat(32), client_nonce: "b".repeat(64) };
+  globalThis.fetch = fakeFetch(pending, 202);
+
+  assert.deepEqual(await loginByCarnet("2024-MED-5837", "ClaveIndividual#2026"), pending);
+  assert.equal(getAuthSnapshot().token, null);
+  assert.equal(storage.values.size, 0);
+});
+
 test("no intenta autenticarse si falta la contraseña", async () => {
   globalThis.fetch = fakeFetch({}, 200);
 
-  await assert.rejects(loginByCarnet("2024-CON-001"), /contraseña/i);
+  await assert.rejects(loginByCarnet("2024-CON-3189"), /contraseña/i);
   assert.equal(calls.length, 0);
 });
 
@@ -75,7 +86,7 @@ test("presenta un mensaje específico cuando el servidor limita los intentos", a
   globalThis.fetch = fakeFetch({ message: "Too Many Attempts." }, 429);
 
   await assert.rejects(
-    loginByCarnet("2024-CON-001", "ClaveIndividual#2026"),
+    loginByCarnet("2024-CON-3189", "ClaveIndividual#2026"),
     /Demasiados intentos de acceso/,
   );
 });
@@ -85,13 +96,13 @@ test("la contraseña no se guarda en el almacenamiento del navegador", async () 
   globalThis.localStorage = storage;
   globalThis.fetch = fakeFetch({
     token: "1|token-ficticio",
-    student: { carnet: "2024-CON-001" },
+    student: { carnet: "2024-CON-3189" },
     idle_minutes: 30,
     expires_at: "2030-01-01T00:00:00.000Z",
   });
 
   const password = "ClaveIndividual#2026";
-  await loginByCarnet("2024-CON-001", password);
+  await loginByCarnet("2024-CON-3189", password);
 
   for (const value of storage.values.values()) {
     assert.doesNotMatch(String(value), new RegExp(password));
@@ -153,7 +164,7 @@ test("salir limpia el estudiante y cambia el ámbito de la interfaz antes de rec
   const token = "42|token-ficticio";
   acceptSession({
     token,
-    student: { carnet: "2024-CON-001" },
+    student: { carnet: "2024-CON-3189" },
     idle_minutes: 30,
     expires_at: new Date(Date.now() + 60_000).toISOString(),
   });

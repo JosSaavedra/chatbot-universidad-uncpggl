@@ -17,7 +17,7 @@ class PasskeyRemovalTest extends TestCase
         $this->seed();
 
         foreach (['register/options', 'register/verify', 'login/options', 'login/verify'] as $path) {
-            $this->postJson('/api/passkeys/'.$path, ['carnet' => '2024-MED-001'])
+            $this->postJson('/api/passkeys/'.$path, ['carnet' => '2024-MED-5837'])
                 ->assertNotFound();
         }
 

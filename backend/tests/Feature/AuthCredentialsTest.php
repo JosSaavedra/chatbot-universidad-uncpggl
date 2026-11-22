@@ -186,7 +186,7 @@ class AuthCredentialsTest extends TestCase
 
     public function test_a_qr_protected_student_cannot_bypass_qr_with_a_password(): void
     {
-        $code = config('qr_auth.protected_carnets')[0];
+        $code = '2023-isi-9264';
         $student = $this->makeStudent(strtoupper($code), 'protegido@example.com');
 
         $this->postJson('/api/login', [
@@ -205,24 +205,49 @@ class AuthCredentialsTest extends TestCase
             ->assertJsonStructure(['request_id', 'client_nonce', 'qr_url', 'confirm_code', 'expires_at']);
     }
 
-    public function test_an_administrator_keeps_password_access(): void
+    public function test_an_administrator_with_an_ordinary_carnet_keeps_password_access(): void
     {
-        $admin = User::factory()->unverified()->create([
-            'name' => 'Administración de Prueba',
-            'email' => 'admin@example.com',
-            'password' => Hash::make(self::PASSWORD),
-            'is_admin' => true,
-        ]);
+        $student = $this->makeStudent('2024-ADM-001', 'admin@example.com');
+        $student->user->update(['is_admin' => true]);
+        $admin = $student->user->fresh();
 
         $token = $this->postJson('/api/login', [
             'email' => $admin->email,
             'password' => self::PASSWORD,
-        ])->assertOk()->assertJsonPath('student', null)->json('token');
+        ])->assertOk()
+            ->assertJsonPath('student.carnet', $student->student_code)
+            ->json('token');
 
         Auth::forgetGuards();
         $this->withToken($token)->getJson('/api/user')
             ->assertOk()
             ->assertJsonPath('is_admin', true);
+    }
+
+    public function test_an_administrator_cannot_bypass_qr_with_a_password(): void
+    {
+        $code = config('qr_auth.protected_carnets')[0];
+        $student = $this->makeStudent(strtoupper($code), 'admin-protegido@example.com');
+        $student->user->update(['is_admin' => true]);
+
+        $this->postJson('/api/login', [
+            'carnet' => $student->student_code,
+            'password' => self::PASSWORD,
+        ])->assertUnprocessable()
+            ->assertJsonPath('errors.carnet.0', 'Las credenciales no son correctas.');
+
+        $this->assertDatabaseCount('personal_access_tokens', 0);
+    }
+
+    public function test_an_administrator_with_a_qr_protected_carnet_cannot_use_a_password_token(): void
+    {
+        $code = config('qr_auth.protected_carnets')[0];
+        $student = $this->makeStudent(strtoupper($code), 'admin-token@example.com');
+        $student->user->update(['is_admin' => true]);
+        $token = $student->user->createToken('password-login')->plainTextToken;
+
+        Auth::forgetGuards();
+        $this->withToken($token)->getJson('/api/user')->assertUnauthorized();
     }
 
     public function test_changing_the_password_revokes_previous_tokens(): void

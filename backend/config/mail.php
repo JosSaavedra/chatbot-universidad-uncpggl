@@ -10,6 +10,10 @@ return [
 
     'mailers' => [
 
+        'qr-approval' => [
+            'transport' => 'gmail-https',
+        ],
+
         'smtp' => [
             'transport' => 'smtp',
             'scheme' => env('MAIL_SCHEME'),
@@ -29,10 +33,6 @@ return [
         'postmark' => [
             'transport' => 'postmark',
            
-        ],
-
-        'resend' => [
-            'transport' => 'resend',
         ],
 
         'sendmail' => [

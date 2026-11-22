@@ -22,17 +22,19 @@ class QrGoogleAuthTest extends TestCase
     private string $currentGoogleToken = 'google-jose';
 
     private const IDENTITIES = [
-        '2024-med-001' => 'google-jose',
-        '2023-isi-001' => 'google-jose',
-        '2024-adm-001' => 'google-cesar',
-        '2022-ici-001' => 'google-cesar',
-        '2025-enf-001' => 'google-rodiver',
-        '2023-med-002' => 'google-rodiver',
+        '2024-med-5837' => 'google-jose',
+        '2023-isi-9264' => 'google-jose',
+        '2024-adm-1748' => 'google-cesar',
+        '2022-ici-8392' => 'google-cesar',
+        '2025-enf-4621' => 'google-rodiver',
+        '2023-med-7056' => 'google-rodiver',
     ];
 
     protected function setUp(): void
     {
         parent::setUp();
+        // Esta suite conserva los casos históricos de enlaces Google con dos carnés.
+        config(['qr_auth.email_accounts' => []]);
         $this->assertSame(0, Artisan::call('qr-google:sync-links'));
         $this->assertSame(3, GooglePreauthorization::count());
 
@@ -164,12 +166,28 @@ class QrGoogleAuthTest extends TestCase
         return $this->exchange($data)->json();
     }
 
+    public function test_the_three_remaining_google_students_keep_google_access(): void
+    {
+        config(['qr_auth.email_accounts' => [
+            '2024-med-5837' => null,
+            '2024-adm-1748' => null,
+            '2025-enf-4621' => null,
+        ]]);
+        $this->seed();
+
+        foreach (['2023-ISI-9264', '2022-ICI-8392', '2023-MED-7056'] as $carnet) {
+            $session = $this->completeLogin($carnet);
+            Auth::forgetGuards();
+            $this->getJson('/api/user', ['Authorization' => 'Bearer '.$session['token']])->assertOk();
+        }
+    }
+
     public function test_qr_url_uses_the_configured_backend_origin_in_production(): void
     {
         $this->app['env'] = 'production';
         config(['qr_auth.base_url' => 'https://backend.onrender.com/']);
         $url = $this->withHeaders(['X-Forwarded-Host' => 'other.example'])
-            ->postJson('/api/qr-auth/request', ['carnet' => '2024-MED-001'])
+            ->postJson('/api/qr-auth/request', ['carnet' => '2024-MED-5837'])
             ->assertAccepted()->json('qr_url');
 
         $this->assertMatchesRegularExpression('#^https://backend\.onrender\.com/acceso/qr/[a-f0-9]{64}$#D', $url);
@@ -179,19 +197,19 @@ class QrGoogleAuthTest extends TestCase
     {
         foreach (['', '/acceso', '//other.example'] as $origin) {
             config(['qr_auth.base_url' => $origin]);
-            $this->postJson('/api/qr-auth/request', ['carnet' => '2024-MED-001'])->assertServiceUnavailable();
+            $this->postJson('/api/qr-auth/request', ['carnet' => '2024-MED-5837'])->assertServiceUnavailable();
         }
 
         $this->app['env'] = 'production';
         config(['qr_auth.base_url' => 'http://backend.onrender.com']);
-        $this->postJson('/api/qr-auth/request', ['carnet' => '2024-MED-001'])->assertServiceUnavailable();
+        $this->postJson('/api/qr-auth/request', ['carnet' => '2024-MED-5837'])->assertServiceUnavailable();
         $this->assertDatabaseCount('qr_auth_requests', 0);
     }
 
     public function test_request_only_contains_a_temporary_qr_and_no_personal_data(): void
     {
         $this->seed();
-        $data = $this->requestQr('2024-MED-001');
+        $data = $this->requestQr('2024-MED-5837');
 
         $this->assertArrayNotHasKey('email', $data);
         $this->assertArrayNotHasKey('carnet', $data);
@@ -217,7 +235,7 @@ class QrGoogleAuthTest extends TestCase
     {
         $this->withoutMiddleware(ThrottleRequests::class);
         $this->seed();
-        $student = Student::whereRaw('LOWER(student_code) = ?', ['2024-med-001'])->firstOrFail();
+        $student = Student::whereRaw('LOWER(student_code) = ?', ['2024-med-5837'])->firstOrFail();
 
         $data = $this->requestQr($student->student_code);
         $this->scan($data);
@@ -312,7 +330,7 @@ class QrGoogleAuthTest extends TestCase
     public function test_only_the_original_browser_can_read_and_exchange_the_request(): void
     {
         $this->seed();
-        $data = $this->authorize('2023-ISI-001');
+        $data = $this->authorize('2023-ISI-9264');
         $this->approve($data);
 
         $this->withHeader('X-Approval-Nonce', str_repeat('a', 64))
@@ -330,19 +348,19 @@ class QrGoogleAuthTest extends TestCase
         $this->withoutMiddleware(ThrottleRequests::class);
         $this->seed();
 
-        $rejected = $this->authorize('2024-ADM-001', 'google-cesar');
+        $rejected = $this->authorize('2024-ADM-1748', 'google-cesar');
         $this->post(route('qr.reject'))->assertOk()->assertSee('Acceso rechazado');
         $this->qrStatus($rejected)->assertJsonPath('status', 'rejected');
         $this->exchange($rejected, null, 409);
 
-        $cancelled = $this->requestQr('2022-ICI-001');
+        $cancelled = $this->requestQr('2022-ICI-8392');
         $this->scan($cancelled);
         $this->cancel($cancelled)->assertOk()->assertJsonPath('message', 'Solicitud cancelada.');
         $this->qrStatus($cancelled)->assertJsonPath('status', 'cancelled');
         $this->get((string) parse_url($cancelled['qr_url'], PHP_URL_PATH))->assertOk()->assertSee('Solicitud cancelada');
         $this->exchange($cancelled, null, 409);
 
-        $expired = $this->requestQr('2025-ENF-001');
+        $expired = $this->requestQr('2025-ENF-4621');
         $this->scan($expired);
         $this->travel(config('qr_auth.ttl_minutes') + 1)->minutes();
         $this->qrStatus($expired)->assertJsonPath('status', 'expired');
@@ -357,7 +375,7 @@ class QrGoogleAuthTest extends TestCase
         $this->withoutMiddleware(ThrottleRequests::class);
         $this->seed();
 
-        $unknown = $this->requestQr('2024-MED-001');
+        $unknown = $this->requestQr('2024-MED-5837');
         $this->scan($unknown);
         $this->googleCallback($this->startGoogle(), 'google-attacker')
             ->assertStatus(403)
@@ -365,9 +383,9 @@ class QrGoogleAuthTest extends TestCase
         $this->qrStatus($unknown)->assertJsonPath('status', 'pending');
         $this->cancel($unknown)->assertOk();
 
-        $crossOwner = $this->requestQr('2024-MED-001');
+        $crossOwner = $this->requestQr('2024-MED-5837');
         $this->cancel($crossOwner);
-        $crossOwner = $this->requestQr('2024-MED-001');
+        $crossOwner = $this->requestQr('2024-MED-5837');
         $this->scan($crossOwner);
         $this->googleCallback($this->startGoogle(), 'google-cesar')
             ->assertStatus(403)
@@ -375,7 +393,7 @@ class QrGoogleAuthTest extends TestCase
         $this->qrStatus($crossOwner)->assertJsonPath('status', 'pending');
 
         $this->googleCallback($this->startGoogle(), 'google-jose')->assertRedirect(route('qr.review'));
-        $cloned = $this->requestQr('2023-ISI-001');
+        $cloned = $this->requestQr('2023-ISI-9264');
         $this->scan($cloned);
         $this->googleCallback($this->startGoogle(), 'google-jose-clon')
             ->assertStatus(403)
@@ -388,14 +406,14 @@ class QrGoogleAuthTest extends TestCase
         $this->withoutMiddleware(ThrottleRequests::class);
         $this->seed();
 
-        $badState = $this->requestQr('2024-MED-001');
+        $badState = $this->requestQr('2024-MED-5837');
         $this->scan($badState);
         $this->googleCallback($this->startGoogle(), 'google-jose', ['state' => 'estado-manipulado'])
             ->assertStatus(400)
             ->assertSee('Sesión de Google no válida');
         $this->qrStatus($badState)->assertJsonPath('status', 'pending');
 
-        $badNonce = $this->requestQr('2023-ISI-001');
+        $badNonce = $this->requestQr('2023-ISI-9264');
         $this->scan($badNonce);
         $this->googleCallback($this->startGoogle(), 'google-bad-nonce')
             ->assertStatus(401)
@@ -407,12 +425,12 @@ class QrGoogleAuthTest extends TestCase
         $forged->assertStatus(400)->assertSee('Respuesta de Google no válida');
 
         $usedCode = 'code-reutilizable-1234';
-        $first = $this->requestQr('2024-ADM-001');
+        $first = $this->requestQr('2024-ADM-1748');
         $this->scan($first);
         $this->googleCallback($this->startGoogle(), 'google-cesar', ['code' => $usedCode])
             ->assertRedirect(route('qr.review'));
 
-        $second = $this->requestQr('2022-ICI-001');
+        $second = $this->requestQr('2022-ICI-8392');
         $this->scan($second);
         $this->googleCallback($this->startGoogle(), 'google-cesar', ['code' => $usedCode])
             ->assertStatus(400)
@@ -424,7 +442,7 @@ class QrGoogleAuthTest extends TestCase
     public function test_consent_is_bound_to_the_verified_mobile_session_and_consumed_once(): void
     {
         $this->seed();
-        $data = $this->requestQr('2024-MED-001');
+        $data = $this->requestQr('2024-MED-5837');
         $this->scan($data);
         $this->googleCallback($this->startGoogle())->assertRedirect(route('qr.review'));
         $verifiedSession = session()->all();
@@ -447,10 +465,10 @@ class QrGoogleAuthTest extends TestCase
     {
         $this->withoutMiddleware(ThrottleRequests::class);
         $this->seed();
-        $session = $this->completeLogin('2024-MED-001');
-        $pending = $this->requestQr('2024-MED-001');
+        $session = $this->completeLogin('2024-MED-5837');
+        $pending = $this->requestQr('2024-MED-5837');
         $accounts = config('qr_auth.accounts');
-        $accounts[1]['carnets'][] = '2024-med-001';
+        $accounts[1]['carnets'][] = '2024-med-5837';
         config(['qr_auth.accounts' => $accounts]);
         $this->assertSame(1, Artisan::call('qr-google:sync-links'));
         $this->qrStatus($pending)->assertJsonPath('status', 'pending');
@@ -462,13 +480,13 @@ class QrGoogleAuthTest extends TestCase
         $this->assertTrue(GooglePreauthorization::where('owner_label', 'jose')->firstOrFail()->revoked_at !== null);
         Auth::forgetGuards();
         $this->withToken($session['token'])->getJson('/api/my-grades')->assertUnauthorized();
-        $this->completeLogin('2024-MED-001', 'google-cesar');
+        $this->completeLogin('2024-MED-5837', 'google-cesar');
     }
 
     public function test_qr_poll_budget_does_not_consume_exchange_budget(): void
     {
         $this->seed();
-        $data = $this->requestQr('2024-MED-001');
+        $data = $this->requestQr('2024-MED-5837');
         for ($poll = 0; $poll < 40; $poll++) {
             $this->qrStatus($data)->assertOk();
         }
@@ -486,14 +504,14 @@ class QrGoogleAuthTest extends TestCase
         $this->withoutMiddleware(ThrottleRequests::class);
         $this->seed();
 
-        $session = $this->completeLogin('2024-MED-001');
-        $this->assertSame(0, Artisan::call('qr-google:revoke', ['carnet' => '2024-MED-001']));
+        $session = $this->completeLogin('2024-MED-5837');
+        $this->assertSame(0, Artisan::call('qr-google:revoke', ['carnet' => '2024-MED-5837']));
 
         Auth::forgetGuards();
         $this->withToken($session['token'])->getJson('/api/my-grades')->assertUnauthorized();
         $this->assertNotNull(GooglePreauthorization::where('owner_label', 'jose')->firstOrFail()->revoked_at);
 
-        $newRequest = $this->requestQr('2024-MED-001');
+        $newRequest = $this->requestQr('2024-MED-5837');
         $this->scan($newRequest);
         $this->googleCallback($this->startGoogle(), 'google-jose')
             ->assertStatus(403)
@@ -503,7 +521,7 @@ class QrGoogleAuthTest extends TestCase
 
     public function test_resyncing_links_does_not_restore_a_revocation(): void
     {
-        $this->assertSame(0, Artisan::call('qr-google:revoke', ['carnet' => '2024-MED-001']));
+        $this->assertSame(0, Artisan::call('qr-google:revoke', ['carnet' => '2024-MED-5837']));
         $this->assertSame(0, Artisan::call('qr-google:sync-links'));
 
         $this->assertNotNull(
@@ -515,9 +533,9 @@ class QrGoogleAuthTest extends TestCase
     {
         $env = Env::getRepository();
         $env->set('GOOGLE_ACCOUNT_LINKS', json_encode([
-            ['owner' => 'uno', 'email' => 'uno@example.com', 'carnets' => '2024-MED-001,2023-ISI-001'],
-            ['owner' => 'dos', 'email' => 'dos@example.com', 'carnets' => '2024-ADM-001,2022-ICI-001'],
-            ['owner' => 'tres', 'email' => 'tres@example.com', 'carnets' => '2025-ENF-001,2023-MED-002'],
+            ['owner' => 'uno', 'email' => 'uno@example.com', 'carnets' => '2024-MED-5837,2023-ISI-9264'],
+            ['owner' => 'dos', 'email' => 'dos@example.com', 'carnets' => '2024-ADM-1748,2022-ICI-8392'],
+            ['owner' => 'tres', 'email' => 'tres@example.com', 'carnets' => '2025-ENF-4621,2023-MED-7056'],
         ], JSON_THROW_ON_ERROR));
 
         try {
@@ -526,15 +544,17 @@ class QrGoogleAuthTest extends TestCase
             $this->assertTrue($settings['accounts_valid']);
             $this->assertCount(3, $settings['accounts']);
             $this->assertSame([
-                '2024-med-001',
-                '2023-isi-001',
-                '2024-adm-001',
-                '2022-ici-001',
-                '2025-enf-001',
-                '2023-med-002',
+                '2024-med-5837',
+                '2023-isi-9264',
+                '2024-adm-1748',
+                '2022-ici-8392',
+                '2025-enf-4621',
+                '2023-med-7056',
+                '2024-med-001', '2023-isi-001', '2024-adm-001',
+                '2022-ici-001', '2025-enf-001', '2023-med-002',
             ], $settings['protected_carnets']);
             $this->assertSame(
-                ['2024-med-001', '2023-isi-001', '2024-adm-001', '2022-ici-001', '2025-enf-001', '2023-med-002'],
+                ['2024-med-5837', '2023-isi-9264', '2024-adm-1748', '2022-ici-8392', '2025-enf-4621', '2023-med-7056'],
                 array_merge(...array_column($settings['accounts'], 'carnets')),
             );
         } finally {
@@ -546,8 +566,8 @@ class QrGoogleAuthTest extends TestCase
     {
         $this->seed();
         $accounts = config('qr_auth.accounts');
-        $session = $this->completeLogin('2024-MED-001');
-        $pending = $this->requestQr('2024-MED-001');
+        $session = $this->completeLogin('2024-MED-5837');
+        $pending = $this->requestQr('2024-MED-5837');
         $link = GooglePreauthorization::where('owner_label', 'jose')->firstOrFail();
         $originalSub = $link->google_sub;
         $env = \Illuminate\Support\Env::getRepository();
@@ -558,6 +578,7 @@ class QrGoogleAuthTest extends TestCase
                 $env->set('GOOGLE_ACCOUNT_LINKS', $raw);
             }
             $settings = (static fn () => require config_path('qr_auth.php'))();
+            $settings['email_accounts'] = [];
             config(['qr_auth' => $settings]);
             $this->assertSame($raw === '{}' ? 1 : 0, Artisan::call('qr-google:sync-links'), json_encode($raw));
             $this->assertSame($raw === '[]', $link->refresh()->revoked_at !== null);
@@ -568,22 +589,22 @@ class QrGoogleAuthTest extends TestCase
         config(['qr_auth.accounts' => $accounts]);
         $this->assertSame(0, Artisan::call('qr-google:sync-links'));
         $this->assertNotNull($link->refresh()->revoked_at);
-        $this->assertSame(0, Artisan::call('qr-google:sync-links', ['--reactivate' => '2024-MED-001']));
+        $this->assertSame(0, Artisan::call('qr-google:sync-links', ['--reactivate' => '2024-MED-5837']));
         $this->assertNull($link->refresh()->revoked_at);
         $this->assertSame($originalSub, $link->google_sub);
-        $this->assertSame(1, Artisan::call('qr-google:sync-links', ['--reactivate' => '2024-MED-001']));
+        $this->assertSame(1, Artisan::call('qr-google:sync-links', ['--reactivate' => '2024-MED-5837']));
         Auth::forgetGuards();
         $this->withToken($session['token'])->getJson('/api/my-grades')->assertUnauthorized();
-        $this->completeLogin('2024-MED-001');
+        $this->completeLogin('2024-MED-5837');
     }
 
     public function test_public_qr_flow_hides_eligibility_until_an_authorized_identity_is_verified(): void
     {
         $this->seed();
-        Student::where('student_code', '2023-ISI-001')->update(['status' => 'inactive']);
+        Student::where('student_code', '2023-ISI-9264')->update(['status' => 'inactive']);
         $denials = [];
         $keys = [];
-        foreach (['2024-MED-001', '2024-CON-001', '2023-ISI-001', '2024-XYZ-999'] as $carnet) {
+        foreach (['2024-MED-5837', '2024-CON-3189', '2023-ISI-9264', '2024-XYZ-999'] as $carnet) {
             $data = $this->requestQr($carnet);
             $keys[] = array_keys($data);
             $this->scan($data)->assertSee('Continuar con Google');
@@ -596,7 +617,7 @@ class QrGoogleAuthTest extends TestCase
         $this->assertCount(1, array_unique(array_map('serialize', $keys)));
         $this->assertCount(1, array_unique($denials));
         $this->assertSame(0, DB::table('personal_access_tokens')->count());
-        $this->completeLogin('2024-MED-001');
+        $this->completeLogin('2024-MED-5837');
     }
 
     public function test_duplicate_requests_traditional_paths_and_demo_mode_remain_protected(): void
@@ -604,17 +625,17 @@ class QrGoogleAuthTest extends TestCase
         $this->withoutMiddleware(ThrottleRequests::class);
         $this->seed();
 
-        $first = $this->requestQr('2024-MED-001');
-        $this->postJson('/api/qr-auth/request', ['carnet' => '2024-MED-001'])->assertAccepted();
+        $first = $this->requestQr('2024-MED-5837');
+        $this->postJson('/api/qr-auth/request', ['carnet' => '2024-MED-5837'])->assertAccepted();
         $this->cancel($first)->assertOk();
-        $this->requestQr('2024-MED-001');
+        $this->requestQr('2024-MED-5837');
 
         foreach (['email', 'correo'] as $field) {
-            $this->postJson('/api/qr-auth/request', ['carnet' => '2024-MED-001', $field => 'atacante@example.com'])
+            $this->postJson('/api/qr-auth/request', ['carnet' => '2024-MED-5837', $field => 'atacante@example.com'])
                 ->assertStatus(422);
         }
-        $this->postJson('/api/qr-auth/request', ['carnet' => '2024-CON-001'])->assertAccepted();
-        $this->postJson('/api/login-approvals/request', ['carnet' => '2024-MED-001'])->assertNotFound();
+        $this->postJson('/api/qr-auth/request', ['carnet' => '2024-CON-3189'])->assertAccepted();
+        $this->postJson('/api/login-approvals/request', ['carnet' => '2024-MED-5837'])->assertNotFound();
 
         foreach ([false, true] as $demo) {
             config(['student_access.demo' => $demo]);
@@ -638,7 +659,7 @@ class QrGoogleAuthTest extends TestCase
         config(['student_access.demo' => true]);
         // Las cuentas locales de demostración funcionan con carné + contraseña
         // individual, sin depender de Google.
-        foreach (['2024-con-001', '2025-isi-002', '2022-arq-001', '2023-agr-001'] as $code) {
+        foreach (['2024-con-3189', '2025-isi-6473', '2022-arq-2815', '2023-agr-9542'] as $code) {
             $student = Student::whereRaw('LOWER(student_code) = ?', [$code])->firstOrFail();
             $student->user->forceFill(['password' => Hash::make('ClaveDePrueba#2026')])->save();
 
@@ -650,6 +671,6 @@ class QrGoogleAuthTest extends TestCase
             $this->withToken($token)->getJson('/api/my-grades')->assertOk();
         }
         config(['student_access.demo' => false]);
-        $this->postJson('/api/login/carnet', ['carnet' => '2024-CON-001'])->assertNotFound();
+        $this->postJson('/api/login/carnet', ['carnet' => '2024-CON-3189'])->assertNotFound();
     }
 }

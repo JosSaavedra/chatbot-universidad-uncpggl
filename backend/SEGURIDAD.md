@@ -1,26 +1,53 @@
-# Acceso estudiantil: QR + Google OpenID Connect
+# Acceso estudiantil
 
 ## Modelo actual
 
 Laravel sigue siendo la autoridad de modo y autorización. `GET /api/auth/mode` informa a React; cambiar el formulario o el JavaScript no cambia los permisos.
 
-- **Seis cuentas protegidas** (siempre, en modo `demo` e `institutional`): `2024-MED-001`, `2023-ISI-001`, `2024-ADM-001`, `2022-ICI-001`, `2025-ENF-001`, `2023-MED-002`. Su única vía es un QR efímero aprobado con Google Sign-In desde el teléfono. No aceptan carné solo, contraseña, passkey, correos ni tokens Sanctum antiguos.
-- **Cuatro cuentas de demostración** (`2024-CON-001`, `2025-ISI-002`, `2022-ARQ-001`, `2023-AGR-001`): acceso local con carné **y contraseña individual**. El seeder deja su hash inicial inutilizable; una persona administradora debe establecer la contraseña con `php artisan student:set-password {carnet}`.
-- No hay selector de método. El carné determina la vía: los seis protegidos ven **«Ingresar con QR»**; los cuatro de demo ven **«Ingresar»** y deben escribir carné y contraseña; las cuentas no protegidas en modo institucional usan correo y contraseña.
-- El acceso local se unifica en `POST /api/login`. Ya no existe `POST /api/login/carnet` ni `POST /api/register`. La contraseña siempre se verifica con `Hash::check` y los fallos usan una respuesta genérica. Sanctum sólo acepta los nombres explícitos `password-login` y `qr-google`; los tokens de métodos retirados o futuros se rechazan.
-- Passkeys, aprobación por correo y sus rutas quedaron eliminadas. Se retiraron las migraciones huérfanas que crearían `student_passkeys` y `login_approvals`; no se ejecutó ninguna migración destructiva contra datos existentes.
+- **Contraseña y aprobación por correo** para `2024-MED-5837`, `2024-ADM-1748` y `2025-ENF-4621`. En computadora, el QR inicia el envío. En celular, se usa **«Continuar con la verificación»**. La aprobación exige escribir el número mostrado en el dispositivo de origen y confirmar.
+- **QR con Google OpenID Connect** para `2023-ISI-9264`, `2022-ICI-8392` y `2023-MED-7056`. Se inicia con **«Usar QR con Google»**.
+- **Cuatro cuentas de demostración** (`2024-CON-3189`, `2025-ISI-6473`, `2022-ARQ-2815`, `2023-AGR-9542`): acceso local con carné **y contraseña individual**. El seeder deja su hash inicial inutilizable; una persona administradora debe establecer la contraseña con `php artisan student:set-password {carnet}`.
+- `POST /api/login` comprueba la contraseña con `Hash::check`. Para las cuentas con aprobación por correo, devuelve una solicitud temporal y reserva el token de sesión para el canje posterior. Sanctum exige el método asignado al carné mediante `password-login`, `qr-google` o `qr-email`.
+
+## Configuración de la aprobación por correo
+
+Configura `QR_EMAIL_2024_MED_5837`, `QR_EMAIL_2024_ADM_1748` y `QR_EMAIL_2025_ENF_4621` con los destinatarios autorizados. Usa el `.env` local excluido de Git o **Environment** en el servicio backend de Render. Las tres solicitudes vencen en cinco minutos y cada carné puede iniciar hasta tres envíos cada diez minutos.
+
+El mailer de aprobación usa Gmail API por HTTPS con el permiso `https://www.googleapis.com/auth/gmail.send`. El cliente OAuth de escritorio y el Gmail remitente se configuran por separado del cliente web de ingreso con Google.
+
+### Autorizar el Gmail remitente
+
+1. Habilita **Gmail API** en el proyecto de Google Cloud del cliente de escritorio. En **Google Auth Platform → Data Access**, añade `gmail.send`. Para producción, completa la configuración de publicación y la verificación que corresponda. Una app externa en estado **Testing** requiere añadir el remitente como usuario de prueba y su refresh token de Gmail vence en siete días.
+2. Guarda el JSON OAuth original en una carpeta privada fuera del repositorio. Desde la raíz del proyecto, ejecuta:
+
+   ```powershell
+   python backend/scripts/authorize_gmail.py --client "$env:USERPROFILE/GmailPrivado/client_secret.json" --output "$env:USERPROFILE/GmailPrivado/gmail-oauth.env" --from-address "remitente@gmail.com"
+   ```
+
+3. Selecciona en el navegador exactamente la cuenta que pasaste en `--from-address` y acepta el permiso de envío. El script recibe el callback local por `127.0.0.1`, verifica `state` y usa PKCE. Guarda las credenciales en el archivo privado indicado.
+4. Copia las cuatro líneas del archivo a `backend/.env` para probar localmente. En **Render → chatbot-uncpggl-api → Environment**, carga `GMAIL_OAUTH_CLIENT_ID`, `GMAIL_OAUTH_CLIENT_SECRET`, `GMAIL_OAUTH_REFRESH_TOKEN` y `MAIL_FROM_ADDRESS` (el mismo Gmail que autorizaste). Añade allí las tres variables privadas `QR_EMAIL_*` indicadas arriba. Guarda con **Save only** hasta que autorices el despliegue.
+
+### Publicación final
+
+- [ ] **Antes del push**. Comprueba las contraseñas vigentes de los tres carnés de correo en la base que se usará en producción. En Render Free, SQLite es efímero y la siembra actual solo permite aprovisionar hashes conocidos para los cuatro carnés tradicionales. Una base recién sembrada no permite ensayar los tres accesos por correo con contraseñas conocidas.
+- [ ] **Docker y Apache**. Ejecuta `docker build -t uncpggl-final backend` y `docker run --rm -d --name uncpggl-check --env-file <archivo-privado-de-prueba> -e PORT=10000 -p 127.0.0.1:18080:10000 uncpggl-final`. Usa una `APP_KEY` de prueba y deja que el contenedor cree su SQLite interno con la ruta predeterminada de la imagen. Verifica `docker exec uncpggl-check apache2ctl -t` y `curl.exe -fsS http://127.0.0.1:18080/up`. Termina la prueba con `docker stop uncpggl-check`.
+- [ ] **Configurar Vercel antes del push**. Confirma el proyecto y directorio raíz `chatbot-universidad`, la rama de producción, el build `npm run build`, la salida `dist` y `VITE_API_URL=https://chatbot-uncpggl-api.onrender.com/api` en Production. En **Settings → Environments → Production → Branch Tracking**, desactiva **Auto-assign Custom Production Domains** para elegir cuándo se publica el build.
+- [ ] **GitHub**. Tras autorizar la publicación, selecciona los cambios del cierre, incluidos `backend/app/Mail`, `backend/scripts/authorize_gmail.py`, las vistas de correo, las dos migraciones nuevas, `backend/docker/apache-mpm.conf` y `backend/docker/php-render.ini` que requiere el Dockerfile. Revisa `git diff --cached --name-status` y `git diff --cached --check`; los archivos `.env` privados, JSON OAuth, SQLite y copias locales deben quedar fuera. Confirma los cambios y publica la rama autorizada. Anota el SHA.
+- [ ] **Render**. Con las variables privadas guardadas y aprobado el despliegue, despliega ese SHA del backend Docker mediante **Manual Deploy → Deploy a specific commit**. Revisa el arranque y las migraciones. Comprueba `https://chatbot-uncpggl-api.onrender.com/up`.
+- [ ] **Publicar Vercel**. Cuando Render responda correctamente, comprueba que el build de Vercel corresponde al mismo SHA. En **Deployments**, selecciona **Promote** para ese build y comprueba la URL de producción.
+- [ ] **Prueba final**. Desde la URL pública, verifica la recepción en los tres buzones reales y el canje solo en el navegador que inició la solicitud. Prueba también rechazo, ingreso con Google de los otros tres carnés y acceso tradicional de los cuatro restantes.
 
 ## Cuentas Google vinculadas
 
-Cada Gmail tiene dos carnés preautorizados. El correo **no** se envía desde React ni se usa para decidir el acceso:
+Las tres cuentas privadas de Google conservan estos carnés:
 
 | Cuenta Google | Carnés |
 | --- | --- |
-| Cuenta 1 (privada) | `2024-MED-001`, `2023-ISI-001` |
-| Cuenta 2 (privada) | `2024-ADM-001`, `2022-ICI-001` |
-| Cuenta 3 (privada) | `2025-ENF-001`, `2023-MED-002` |
+| Cuenta 1 (privada) | `2023-ISI-9264` |
+| Cuenta 2 (privada) | `2022-ICI-8392` |
+| Cuenta 3 (privada) | `2023-MED-7056` |
 
-Los tres Gmail reales **no se incluyen en este repositorio**. Sólo existen en el `.env` privado de cada instalación, dentro de `GOOGLE_ACCOUNT_LINKS` como JSON, y en el Dashboard de Render como variable de entorno. Nunca aparecen en código, logs, QR, URL, respuestas de status ni mensajes de error. La plantilla pública `.env.example` conserva los tres titulares y los seis carnés, con correos ficticios `example.com`; los carnés configurados se suman a la línea base de seis protegidos, de modo que una variable ausente no los desprotege.
+Los tres Gmail reales se gestionan como configuración privada en `GOOGLE_ACCOUNT_LINKS`. La plantilla pública `.env.example` usa correos ficticios `example.com`. Los carnés configurados se suman a la lista de protección de Laravel, que exige QR incluso si la variable está ausente.
 
 `GOOGLE_ACCOUNT_LINKS` sincroniza la tabla `google_preauthorizations` mediante:
 
@@ -29,14 +56,30 @@ php artisan qr-google:sync-links
 php artisan qr-google:links
 ```
 
-Si la variable está ausente o en blanco, la sincronización conserva los vínculos. Un valor inválido detiene la sincronización. Usa el JSON explícito `[]` únicamente para retirar todas las autorizaciones activas.
+Si la variable está ausente o en blanco, la sincronización conserva los vínculos. Un valor inválido detiene la sincronización. Usa el JSON explícito `[]` únicamente para retirar todas las autorizaciones activas. Los seis carnés protegidos anteriores también exigen QR si se restaura una base antigua.
+
+### Aplicación en una instalación existente
+
+1. Haz una copia consistente de SQLite y comprueba su integridad antes de intervenir.
+2. Actualiza únicamente los carnés de cada titular en el `GOOGLE_ACCOUNT_LINKS` privado. En Render, guarda el JSON crudo desde **Environment** para que se active junto con la nueva versión.
+3. Ejecuta `php artisan migrate --force` antes de `php artisan qr-google:sync-links`. El arranque de Render ya sigue ese orden. La migración conserva las fichas, los datos académicos y los vínculos de Google, y revoca el acceso anterior de las cuentas afectadas.
+4. Para inicializar una demo vacía en Render Free, consulta el procedimiento de aprovisionamiento de abajo. Los estudiantes que usan contraseña y aprobación por correo necesitan una contraseña individual aprovisionada.
+5. Configura `VITE_API_URL` en Vercel con la URL HTTPS de la API terminada en `/api`. Mantén el origen de Vercel autorizado en Laravel y configura los secretos de Google y Groq exclusivamente en el backend.
 
 Para reactivar un vínculo revocado, verifica que el correo y todos sus carnés siguen perteneciendo al titular esperado, confirma que la configuración privada contiene esa asignación y ejecuta `php artisan qr-google:sync-links --reactivate=CARNÉ`. La opción afecta al vínculo completo del titular, conserva el identificador Google previamente asociado y exige un nuevo acceso QR. Si otro titular activo tiene alguno de esos carnés, resuelve primero la reasignación. Una sincronización normal conserva las revocaciones.
+
+### Conservar revocaciones en Render Free
+
+Render Free usa un filesystem efímero: al reiniciarse o reconstruirse la base se pierden `personal_access_tokens` y el `revoked_at` de `google_preauthorizations`. Las variables privadas no sustituyen a SQLite, pero sí fijan la configuración autoritativa que el arranque vuelve a aplicar:
+
+- `GOOGLE_ACCOUNT_LINKS`: conserva el JSON exacto de los tres titulares y sus carnés en **Environment** (nunca en el repositorio ni en variables `VITE_*`). `qr-google:sync-links` no reactiva vínculos revocados salvo que se use `--reactivate=...`. Para que un carné siga revocado tras una base nueva, retíralo del JSON de su titular (o usa `[]` sólo si quieres retirar todas las autorizaciones) y vuelve a sincronizar.
+- `DEMO_STUDENT_PASSWORD_HASHES`: `demo:ensure-seeded` siembra únicamente una base vacía; no sobrescribe contraseñas, estados ni tokens. Mantén el mismo valor privado para no reabrir cuentas ya revocadas.
+- Si una revocación no puede representarse en el JSON (por ejemplo, tokens ya emitidos), repite `php artisan qr-google:revoke CARNÉ` después de reconstruir SQLite. No ejecutes `--reactivate` como parte del arranque habitual.
 
 En el primer inicio de sesión correcto se guarda el `sub` de Google junto al carné. A partir de ahí, ese carné sólo acepta esa identidad. Una identidad desconocida se rechaza; un `sub` distinto también. Para desvincular y revocar sesiones:
 
 ```bash
-php artisan qr-google:revoke 2024-MED-001
+php artisan qr-google:revoke 2023-ISI-9264
 ```
 
 ## Variables de entorno
@@ -45,15 +88,16 @@ php artisan qr-google:revoke 2024-MED-001
 | --- | --- | --- |
 | `STUDENT_ACCESS_MODE` | `institutional` | Controla la presentación del acceso de demostración; nunca habilita autenticación por carné sin contraseña. |
 | `DEMO_SEED_ON_EMPTY` | `false` | En Render Free, activarlo para sembrar datos ficticios cuando la base SQLite esté vacía. El comando es idempotente y nunca restablece contraseñas ni sobrescribe registros. |
+| `DEMO_STUDENT_PASSWORD_HASHES` | vacío | Objeto JSON privado de carné a hash bcrypt para las cuatro cuentas tradicionales. Se usa sólo al crear la demo en una base vacía. |
 | `TRUSTED_PROXIES` | vacío | Proxies de confianza para resolver la IP real en Render; `*` se usa en el blueprint de Render. |
 | `TOKEN_LIFETIME_MINUTES` | `120` | Tiempo máximo desde la emisión del token Sanctum. |
 | `TOKEN_IDLE_MINUTES` | `30` | Tiempo máximo desde la última petición autenticada. |
-| `QR_AUTH_TTL_MINUTES` | `10` | Vigencia de la solicitud QR y del número de confirmación. |
+| `QR_AUTH_TTL_MINUTES` | `10` | Vigencia del QR de Google y de su número de confirmación. |
 | `QR_AUTH_URL` | `APP_URL` | Origen del backend accesible desde el teléfono. En producción debe usar HTTPS. En local, usa la IP de red o un dominio accesible para el teléfono. |
 | `GOOGLE_CLIENT_ID` | — | ID de cliente OAuth de Google Cloud. |
 | `GOOGLE_CLIENT_SECRET` | — | Secreto del cliente OAuth; nunca sale del backend. `GOOGLE_SECRET` se acepta como alias (Render). |
 | `GOOGLE_REDIRECT_URI` | `APP_URL/auth/google/callback` | Callback exacto registrado en Google Cloud. |
-| `GOOGLE_ACCOUNT_LINKS` | — | JSON privado con los tres pares de carnés y sus Gmail. |
+| `GOOGLE_ACCOUNT_LINKS` | — | JSON privado con los carnés que conservan Google y sus cuentas autorizadas. |
 | `GOOGLE_AUTH_URL` | `https://accounts.google.com/o/oauth2/v2/auth` | Endpoint de autorización. |
 | `GOOGLE_TOKEN_URL` | `https://oauth2.googleapis.com/token` | Endpoint de intercambio de código. |
 | `GOOGLE_JWKS_URL` | `https://www.googleapis.com/oauth2/v3/certs` | Claves públicas para verificar el ID token. |
@@ -66,7 +110,7 @@ php artisan qr-google:revoke 2024-MED-001
 La contraseña de una cuenta se establece o cambia únicamente desde el backend, con entrada oculta y confirmación:
 
 ```bash
-php artisan student:set-password 2024-CON-001
+php artisan student:set-password 2024-CON-3189
 ```
 
 La orden exige al menos 12 caracteres, rechaza contraseñas frecuentes y las que contienen el carné, correo o nombre de la cuenta. No imprime ni registra la contraseña y revoca todos los tokens existentes al cambiarla. Para retirar físicamente tokens de métodos anteriores se dispone de `php artisan auth:revoke-legacy-tokens`; `php artisan demo:normalize-emails --dry-run` permite revisar la normalización de correos ficticios sin escribir.
@@ -82,7 +126,7 @@ Render usa SQLite con la ruta absoluta DB_DATABASE. Vercel requiere VITE_API_URL
    `https://<host-de-render>/auth/google/callback`
    El valor debe coincidir con `GOOGLE_REDIRECT_URI`, sin barra final adicional, sin `http://` y sin el puerto local del frontend.
 5. Copiar el ID y el secreto a `GOOGLE_CLIENT_ID` y `GOOGLE_CLIENT_SECRET` (o `GOOGLE_SECRET`, alias admitido) del `.env` privado del backend. No pegarlos en código, chat ni repositorio.
-6. No solicitar permisos de Gmail, contactos ni Drive. La app pide únicamente `openid` y `email` (opcionalmente `profile`).
+6. Para este cliente web de ingreso, solicita únicamente `openid` y `email` (opcionalmente `profile`). El permiso `gmail.send` corresponde al cliente de escritorio del remitente.
 7. Ejecutar `php artisan config:clear` y reiniciar el proceso del backend para que lea la nueva configuración.
 
 ## Flujo QR
@@ -105,12 +149,12 @@ El deploy actual de Render corresponde al commit anterior `7585165`, por lo que 
 
 1. Configura Google Cloud y el backend con `QR_AUTH_URL=https://<host-publico-del-backend>` y `GOOGLE_REDIRECT_URI=https://<host-publico-del-backend>/auth/google/callback`.
 2. Añade el origen exacto de Vercel a `CORS_ALLOWED_ORIGINS` y ejecuta `php artisan config:clear`.
-3. Abre el frontend en la computadora, escribe `2024-MED-001` y pulsa **«Ingresar con QR»**.
+3. Abre el frontend en la computadora, escribe `2024-MED-5837` y pulsa **«Ingresar con QR»**.
 4. Escanea el QR con el teléfono. Comprueba que pide el número de seis dígitos mostrado en pantalla, que no muestra correos y que inicia Google Sign-In en una pestaña nueva.
 5. Inicia sesión con el Gmail correspondiente al carné, revisa la cuenta y pulsa **«Sí, continuar»**. La computadora debe entrar al chatbot sola.
 6. Repite con un carné del mismo Gmail (debe funcionar), con otro de los tres Gmail (debe funcionar) y con un Gmail ajeno a la lista (debe ser rechazado).
 7. Prueba **«No reconozco este acceso»**, cancelar desde la computadora, reabrir un QR ya usado y dejar expirar una solicitud. Ninguno debe crear sesión.
-8. Ejecuta `php artisan qr-google:revoke 2024-MED-001` y confirma que el token anterior deja de servir y que un nuevo `sub` no puede vincularse sin intervención administrativa.
+8. Ejecuta `php artisan qr-google:revoke 2024-MED-5837` y confirma que el token anterior deja de servir y que un nuevo `sub` no puede vincularse sin intervención administrativa.
 
 ## Vercel y Render
 
@@ -155,22 +199,32 @@ Copias previas al cambio, en la carpeta padre: `chatbot-antes-aprobacion-correo.
 
 ### Aprovisionamiento de la defensa
 
-**Render Free, sin Shell.** Configura `DEMO_SEED_ON_EMPTY=true` y `GOOGLE_ACCOUNT_LINKS` con los tres titulares y los seis carnés. En cada arranque, `docker/start.sh` ejecuta:
+**Render Free, sin Shell.** En **Environment** del servicio Laravel, confirma `DEMO_SEED_ON_EMPTY=true` y carga dos valores privados:
+
+- `DEMO_STUDENT_PASSWORD_HASHES` contiene un objeto JSON con exactamente los carnés `2024-CON-3189`, `2025-ISI-6473`, `2022-ARQ-2815` y `2023-AGR-9542`. Cada valor es un hash bcrypt distinto, con prefijo `$2y$` y coste de al menos 12, compatible con `BCRYPT_ROUNDS` del backend. El coste predeterminado es 12.
+- `GOOGLE_ACCOUNT_LINKS` contiene las tres asignaciones privadas con los seis carnés protegidos de la tabla anterior.
+
+Pega cada JSON crudo, en una sola línea y sin comillas exteriores. En un servicio existente, carga ambas variables manualmente y selecciona **Save only** para que entren en vigor junto con el despliegue posterior del código. Una entrada `sync: false` en el Blueprint solicita el valor durante la creación inicial. Mantén estos valores en el backend y fuera de Git y de las variables `VITE_*`. [Variables de entorno de Render](https://render.com/docs/configure-environment-variables) · [Secretos en Blueprints](https://render.com/docs/blueprint-spec#prompting-for-secret-values)
+
+En cada arranque, `docker/start.sh` ejecuta:
 
 ```sh
 php artisan migrate --force
 php artisan demo:ensure-seeded
+unset DEMO_STUDENT_PASSWORD_HASHES
 php artisan qr-google:sync-links
 ```
 
-`demo:ensure-seeded` sólo siembra si todas las tablas de datos están vacías; si existe cualquier usuario o registro, no escribe nada. No ejecuta `student:set-password`, no imprime contraseñas y no modifica cuentas existentes. Las cuatro cuentas locales de demostración quedan con contraseñas aleatorias inutilizables; el acceso de la defensa se hace con los seis carnés QR. Si necesitas acceso local con contraseña, prepara una base aislada con `migrate`, `db:seed` y `student:set-password`, o usa un disco persistente con Shell; no pongas contraseñas en variables de entorno.
+`demo:ensure-seeded` valida el objeto antes de escribir y aplica los hashes al crear las cuatro cuentas en la misma transacción que siembra los datos. Si el JSON configurado es inválido, falla el arranque y la siembra queda sin aplicar. Si el valor está vacío, se conserva el aprovisionamiento previo con secretos aleatorios inaccesibles. En una base con datos de aplicación, el comando termina sin tocar cuentas ni contraseñas. El proceso HTTP se inicia sin la variable de hashes.
+
+Render Free pierde el SQLite del contenedor al reiniciar, redesplegar o entrar en reposo. La siguiente inicialización recupera los datos ficticios y las cuatro credenciales configuradas. Los cambios hechos durante la sesión, incluidos los registros de uso y la vinculación local del identificador de Google, duran lo que dura ese SQLite. Las preautorizaciones se cargan de nuevo desde `GOOGLE_ACCOUNT_LINKS`. [Documentación de Render Free](https://render.com/docs/free)
 
 **Base aislada con Shell (opcional).** En una copia aislada del proyecto, crea un archivo SQLite vacío. Desde `backend`, apunta `DB_DATABASE` a su ruta absoluta y confirma que corresponde a la base ficticia. Ejecuta:
 
 ```sh
 php artisan migrate
 php artisan db:seed
-php artisan student:set-password 2024-CON-001
+php artisan student:set-password 2024-CON-3189
 ```
 
 Repite el último comando para las cuentas locales que participarán. El comando solicita una contraseña individual con entrada oculta y revoca los tokens de esa cuenta. Mantén las contraseñas fuera del repositorio y de las variables `VITE_*`. Para los carnés protegidos, configura en privado cuentas Google autorizadas para la demostración y ejecuta `php artisan qr-google:sync-links` en esa base. El QR real requiere que el teléfono alcance la URL HTTPS registrada. Prepara el acceso local con carné y contraseña para una defensa sin Internet. Prueba los accesos y una consulta pública antes de la presentación.

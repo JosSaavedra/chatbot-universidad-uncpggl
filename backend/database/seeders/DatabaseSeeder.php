@@ -11,7 +11,8 @@ use Illuminate\Support\Str;
 
 class DatabaseSeeder extends Seeder
 {
-    public function run(): void
+    /** @param array<string, string> $passwordHashes Hashes validados por demo:ensure-seeded. */
+    public function run(#[\SensitiveParameter] array $passwordHashes = []): void
     {
         if (DB::table('users')->exists()) {
             return;
@@ -41,16 +42,16 @@ class DatabaseSeeder extends Seeder
         $careerIds = DB::table('careers')->pluck('id', 'code');
 
         $userData = [
-            ['name' => 'María José Téllez',    'email' => 'estudiante01@example.com',   'career_code' => 'MED-001', 'student_code' => '2024-MED-001', 'year' => 2],
-            ['name' => 'Carlos Mendoza',        'email' => 'estudiante02@example.com',  'career_code' => 'ISI-001', 'student_code' => '2023-ISI-001', 'year' => 3],
-            ['name' => 'Lucía Hernández',       'email' => 'estudiante03@example.com',   'career_code' => 'ADM-001', 'student_code' => '2024-ADM-001', 'year' => 1],
-            ['name' => 'José Antonio Ruiz',     'email' => 'estudiante04@example.com',    'career_code' => 'ICI-001', 'student_code' => '2022-ICI-001', 'year' => 4],
-            ['name' => 'Ana Sofía Morales',     'email' => 'estudiante05@example.com',     'career_code' => 'ENF-001', 'student_code' => '2025-ENF-001', 'year' => 1],
-            ['name' => 'Pedro Gutiérrez',       'email' => 'estudiante06@example.com',   'career_code' => 'MED-001', 'student_code' => '2023-MED-002', 'year' => 3],
-            ['name' => 'Gabriela Castillo',     'email' => 'estudiante07@example.com','career_code' => 'CON-001', 'student_code' => '2024-CON-001', 'year' => 2],
-            ['name' => 'Diego Ramírez',         'email' => 'estudiante08@example.com',   'career_code' => 'ISI-001', 'student_code' => '2025-ISI-002', 'year' => 1],
-            ['name' => 'Valeria Ortega',        'email' => 'estudiante09@example.com', 'career_code' => 'ARQ-001', 'student_code' => '2022-ARQ-001', 'year' => 4],
-            ['name' => 'Marcos Espinoza',       'email' => 'estudiante10@example.com',  'career_code' => 'AGR-001', 'student_code' => '2023-AGR-001', 'year' => 3],
+            ['name' => 'María José Téllez',    'email' => 'estudiante01@example.com',   'career_code' => 'MED-001', 'student_code' => '2024-MED-5837', 'year' => 2],
+            ['name' => 'Carlos Mendoza',        'email' => 'estudiante02@example.com',  'career_code' => 'ISI-001', 'student_code' => '2023-ISI-9264', 'year' => 3],
+            ['name' => 'Lucía Hernández',       'email' => 'estudiante03@example.com',   'career_code' => 'ADM-001', 'student_code' => '2024-ADM-1748', 'year' => 1],
+            ['name' => 'José Antonio Ruiz',     'email' => 'estudiante04@example.com',    'career_code' => 'ICI-001', 'student_code' => '2022-ICI-8392', 'year' => 4],
+            ['name' => 'Ana Sofía Morales',     'email' => 'estudiante05@example.com',     'career_code' => 'ENF-001', 'student_code' => '2025-ENF-4621', 'year' => 1],
+            ['name' => 'Pedro Gutiérrez',       'email' => 'estudiante06@example.com',   'career_code' => 'MED-001', 'student_code' => '2023-MED-7056', 'year' => 3],
+            ['name' => 'Gabriela Castillo',     'email' => 'estudiante07@example.com','career_code' => 'CON-001', 'student_code' => '2024-CON-3189', 'year' => 2],
+            ['name' => 'Diego Ramírez',         'email' => 'estudiante08@example.com',   'career_code' => 'ISI-001', 'student_code' => '2025-ISI-6473', 'year' => 1],
+            ['name' => 'Valeria Ortega',        'email' => 'estudiante09@example.com', 'career_code' => 'ARQ-001', 'student_code' => '2022-ARQ-2815', 'year' => 4],
+            ['name' => 'Marcos Espinoza',       'email' => 'estudiante10@example.com',  'career_code' => 'AGR-001', 'student_code' => '2023-AGR-9542', 'year' => 3],
 
 ];
         
@@ -64,11 +65,8 @@ class DatabaseSeeder extends Seeder
                 $user = User::create([
                     'name' => $u['name'],
                     'email' => $u['email'],
-                    // Contraseña NO utilizable: es el hash de un secreto
-                    // aleatorio criptográficamente seguro que nunca se
-                    // divulga ni se imprime. La contraseña real la establece la
-                    // administración con `php artisan student:set-password`.
-                    'password' => Hash::make(Str::random(64)),
+                    // Sin aprovisionamiento, el secreto aleatorio nunca se divulga.
+                    'password' => $passwordHashes[$u['student_code']] ?? Hash::make(Str::random(64)),
                 ]);
             }
 

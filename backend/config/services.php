@@ -15,8 +15,10 @@ return [
     'postmark' => [
         'token' => env('POSTMARK_TOKEN'),
     ],
-    'resend' => [
-        'key' => env('RESEND_KEY'),
+    'gmail' => [
+        'client_id' => env('GMAIL_OAUTH_CLIENT_ID'),
+        'client_secret' => env('GMAIL_OAUTH_CLIENT_SECRET'),
+        'refresh_token' => env('GMAIL_OAUTH_REFRESH_TOKEN'),
     ],
     'ses' => [
         'key' => env('AWS_ACCESS_KEY_ID'),

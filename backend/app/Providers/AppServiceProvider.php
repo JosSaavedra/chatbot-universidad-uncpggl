@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Mail\GmailHttpTransport;
 use App\Models\Career;
 use App\Models\Grade;
 use App\Models\Schedule;
@@ -17,9 +18,11 @@ use App\Policies\TutoringPolicy;
 use App\Services\GoogleOidcProvider;
 use App\Services\GoogleOidcVerifier;
 use App\Services\LoginIdentity;
+use App\Services\QrLogin;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Laravel\Sanctum\Sanctum;
@@ -38,6 +41,17 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        Mail::extend('gmail-https', fn () => new GmailHttpTransport(
+            trim((string) config('services.gmail.client_id')),
+            trim((string) config('services.gmail.client_secret')),
+            trim((string) config('services.gmail.refresh_token')),
+        ));
+
+        RateLimiter::for('qr-email-decision', static fn (Request $request) => [
+            Limit::perMinutes(5, 5)->by(hash('sha256', (string) $request->route('token'))),
+            Limit::perMinute(20)->by('ip:'.$request->ip()),
+        ]);
+
         RateLimiter::for('qr-poll', static fn (Request $request) => [
             Limit::perMinute(40)->by('request:'.$request->ip().':'.$request->route('publicId')),
             Limit::perMinute(300)->by('ip:'.$request->ip()),
@@ -105,7 +119,7 @@ class AppServiceProvider extends ServiceProvider
                 return false;
             }
 
-            if (! in_array($token->name, ['password-login', 'qr-google'], true)) {
+            if (! in_array($token->name, ['password-login', 'qr-google', 'qr-email'], true)) {
                 return false;
             }
 
@@ -122,22 +136,24 @@ class AppServiceProvider extends ServiceProvider
 
             $student = Student::where('user_id', $user->id)->first();
             $carnet = mb_strtolower((string) $student?->student_code);
+            if (QrLogin::requiresEmail($carnet)) {
+                return $token->name === 'qr-email' && $student->status === 'active' && ! $user->is_admin;
+            }
+            if ($token->name === 'qr-email') {
+                return false;
+            }
             $requiresQr = in_array($carnet, array_map('mb_strtolower', (array) config('qr_auth.protected_carnets', [])), true);
 
             if ($token->name === 'qr-google') {
-                // La ceremonia QR + Google sólo sirve para los carnés que la
-                // exigen y para cuentas de estudiante activas (nunca
-                // administradores).
-                return $requiresQr && ! $user->is_admin && $student?->status === 'active';
-            }
-
-            // Los administradores legítimos conservan su acceso.
-            if ($user->is_admin) {
-                return true;
+                // La ceremonia QR + Google vale para los carnés que la exigen
+                // y para cuentas de estudiante activas. El rol de
+                // administrador NO exime del QR ni lo desactiva.
+                return $requiresQr && $student?->status === 'active';
             }
 
             // Una cuenta de estudiante sin ficha, deshabilitada o protegida
-            // por QR no puede autorizar un token de contraseña.
+            // por QR no puede autorizar un token de contraseña. El rol de
+            // administrador tampoco abre una vía alternativa.
             return $student
                 && $student->status === 'active'
                 && ! $requiresQr;

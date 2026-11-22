@@ -139,6 +139,8 @@ export const loginByCarnet = async (identifier, password) => {
     throw new Error(message);
   }
 
+  if (response.status === 202 && payload.method === "email") return payload;
+
   return acceptSession(payload);
 };
 

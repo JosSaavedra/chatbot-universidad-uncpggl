@@ -6,4 +6,5 @@ return [
     // Si ya existe cualquier registro sembrado, el comando no escribe nada y
     // nunca restablece contraseñas ni sobrescribe cuentas.
     'seed_on_empty' => filter_var(env('DEMO_SEED_ON_EMPTY', false), FILTER_VALIDATE_BOOL),
+    'student_password_hashes' => env('DEMO_STUDENT_PASSWORD_HASHES', ''),
 ];

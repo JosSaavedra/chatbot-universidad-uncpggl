@@ -1,5 +1,23 @@
-const API_URL = (import.meta.env && import.meta.env.VITE_API_URL)
-  || "http://localhost:8000/api";
+const PRODUCTION_API_URL = "https://chatbot-uncpggl-api.onrender.com/api";
+const LOCAL_API_URL = "http://localhost:8000/api";
+
+/**
+ * En producción el único backend permitido por la CSP es Render. Un
+ * VITE_API_URL ausente o apuntando a localhost no debe filtrarse al bundle.
+ * En desarrollo se conserva el valor configurado o el servidor local.
+ */
+export function resolveApiUrl(env) {
+  const source = env ?? (typeof import.meta !== "undefined" ? import.meta.env : undefined);
+  if (source?.PROD) return PRODUCTION_API_URL;
+
+  const configured = typeof source?.VITE_API_URL === "string"
+    ? source.VITE_API_URL.trim().replace(/\/+$/, "")
+    : "";
+
+  return configured || LOCAL_API_URL;
+}
+
+const API_URL = resolveApiUrl();
 
 async function readJson(response, fallback) {
   if (response.ok) return response.json();
@@ -64,4 +82,16 @@ export function cancelQr(requestId, clientNonce) {
     },
     body: JSON.stringify({ request_id: requestId }),
   }).then((response) => readJson(response, "cancelar la solicitud"));
+}
+
+export function sendEmailApproval(requestId, clientNonce) {
+  return fetch(`${API_URL}/qr-auth/email/send`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+      "X-Approval-Nonce": clientNonce,
+    },
+    body: JSON.stringify({ request_id: requestId }),
+  }).then((response) => readJson(response, "enviar la solicitud de verificación"));
 }

@@ -18,7 +18,7 @@ class NoStoreApi
         if ($request->isSecure() && app()->isProduction()) {
             $response->headers->set('Strict-Transport-Security', 'max-age=31536000');
         }
-        if ($request->is('api/*', 'auth/google/*', 'acceso/qr/*', 'sanctum/csrf-cookie')) {
+        if ($request->is('api/*', 'auth/google/*', 'acceso/qr/*', 'acceso/correo/*', 'sanctum/csrf-cookie')) {
             $response->headers->set('Cache-Control', 'private, no-store');
         }
         return $response;

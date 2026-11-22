@@ -1,20 +1,20 @@
 /* ==========================================================================
    Ver carreras — tarjetas y panel de detalle
-   Colores institucionales UNCPGGL (rojo + tema oscuro).
+   Colores institucionales UNCPGGL (rojo + tema claro/oscuro).
    ========================================================================== */
 
 .carreras-view {
-  --c-bg: #111827;
-  --c-surface: #1a2332;
-  --c-surface-2: #1f2937;
-  --c-border: #263449;
-  --c-border-strong: #334155;
-  --c-text: #e2e8f0;
-  --c-muted: #94a3b8;
+  --c-bg: var(--theme-card);
+  --c-surface: var(--theme-surface);
+  --c-surface-2: var(--theme-surface-2);
+  --c-border: var(--theme-border);
+  --c-border-strong: var(--theme-border-strong);
+  --c-text: var(--theme-text);
+  --c-muted: var(--theme-muted);
   --c-red: #991b1b;
   --c-red-dark: #7f1d1d;
   --c-red-accent: #dc2626;
-  --c-red-soft: #fca5a5;
+  --c-red-soft: var(--theme-accent-soft);
 
   flex: 1;
   overflow-y: auto;
@@ -43,7 +43,7 @@
 
 .carreras-back-btn {
   background: transparent;
-  border: 1px solid rgba(255, 255, 255, 0.25);
+  border: 1px solid var(--theme-border-soft);
   color: var(--c-text);
   border-radius: 20px;
   padding: 8px 14px;
@@ -54,8 +54,8 @@
 }
 
 .carreras-back-btn:hover {
-  background: rgba(255, 255, 255, 0.1);
-  border-color: rgba(255, 255, 255, 0.4);
+  background: var(--theme-ghost-hover);
+  border-color: var(--theme-border-soft);
 }
 
 .carreras-search {
@@ -73,12 +73,12 @@
 }
 
 .carreras-search::placeholder {
-  color: #64748b;
+  color: var(--theme-faint);
 }
 
 .carreras-search:focus {
   border-color: var(--c-red-accent);
-  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.16);
+  box-shadow: 0 0 0 3px var(--theme-input-focus-ring);
 }
 
 .carreras-filter {
@@ -96,7 +96,7 @@
 
 .carreras-filter:focus {
   border-color: var(--c-red-accent);
-  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.16);
+  box-shadow: 0 0 0 3px var(--theme-input-focus-ring);
 }
 
 .carreras-count {
@@ -111,9 +111,9 @@
 }
 
 .carreras-error {
-  background: rgba(220, 38, 38, 0.15);
+  background: var(--theme-error-bg);
   border: 1px solid #dc2626;
-  color: #fca5a5;
+  color: var(--theme-accent-soft);
   border-radius: 10px;
   padding: 10px 14px;
   font-size: 0.9rem;
@@ -139,7 +139,7 @@
 }
 
 .carrera-card {
-  background: linear-gradient(180deg, #1c2738 0%, #18202e 100%);
+  background: var(--theme-card-gradient);
   border: 1px solid var(--c-border);
   border-radius: 16px;
   overflow: hidden;
@@ -150,9 +150,9 @@
 }
 
 .carrera-card:hover {
-  border-color: #3b4d6b;
+  border-color: var(--theme-hover-border);
   transform: translateY(-3px);
-  box-shadow: 0 14px 28px -16px rgba(0, 0, 0, 0.85);
+  box-shadow: 0 14px 28px -16px var(--theme-shadow-strong);
 }
 
 @keyframes cardIn {
@@ -200,7 +200,7 @@
   height: 48px;
   color: #fff;
   opacity: 0.96;
-  filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.5));
+  filter: drop-shadow(0 6px 14px var(--theme-shadow-strong));
 }
 
 .carrera-card-body {
@@ -215,7 +215,7 @@
   margin: 0;
   font-size: 1.08rem;
   font-weight: 600;
-  color: #f8fafc;
+  color: var(--theme-heading);
   line-height: 1.25;
   letter-spacing: -0.01em;
 }
@@ -239,9 +239,9 @@
   align-items: center;
   padding: 3px 9px;
   border-radius: 999px;
-  background: rgba(148, 163, 184, 0.12);
-  border: 1px solid rgba(148, 163, 184, 0.22);
-  color: #cbd5e1;
+  background: var(--theme-chip-bg);
+  border: 1px solid var(--theme-chip-border);
+  color: var(--theme-text-soft);
   font-size: 0.72rem;
   letter-spacing: 0.01em;
   white-space: nowrap;
@@ -292,7 +292,7 @@
   position: fixed;
   inset: 0;
   /* Superposición más ligera para conservar el contexto visual. */
-  background: rgba(2, 6, 23, 0.38);
+  background: var(--theme-overlay-soft);
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.25s ease;
@@ -309,12 +309,12 @@
 .carrera-panel {
   width: min(560px, 100%);
   height: 100%;
-  background: #0f172a;
+  background: var(--theme-card);
   border-left: 1px solid var(--c-border);
   display: flex;
   flex-direction: column;
   animation: panelSlideIn 0.28s ease both;
-  box-shadow: -24px 0 60px -30px rgba(0, 0, 0, 0.95);
+  box-shadow: -24px 0 60px -30px var(--theme-shadow-strong);
 }
 
 @keyframes panelSlideIn {
@@ -404,7 +404,7 @@
   display: flex;
   gap: 2px;
   padding: 6px 12px 0;
-  background: #0f172a;
+  background: var(--theme-card);
   border-bottom: 1px solid var(--c-border);
   overflow-x: auto;
   scrollbar-width: none;
@@ -434,7 +434,7 @@
 }
 
 .carrera-tab.active {
-  color: #fff;
+  color: var(--theme-heading);
   border-bottom-color: var(--c-red-accent);
 }
 
@@ -494,14 +494,14 @@
   margin: 0 0 10px;
   font-size: 0.98rem;
   font-weight: 600;
-  color: #f8fafc;
+  color: var(--theme-heading);
   border-left: 3px solid var(--c-red);
   padding-left: 9px;
 }
 
 .carrera-panel-section p {
   margin: 0;
-  color: #cbd5e1;
+  color: var(--theme-text-soft);
   font-size: 0.92rem;
   line-height: 1.6;
   white-space: pre-line;
@@ -525,7 +525,7 @@
 }
 
 .carrera-inline-link:hover {
-  color: #fecaca;
+  color: var(--theme-red-link-hover);
 }
 
 .carrera-pendiente {
@@ -610,7 +610,7 @@
 
 .carrera-action-btn:hover {
   background: var(--c-border);
-  border-color: #3b4d6b;
+  border-color: var(--theme-hover-border);
 }
 
 .carrera-action-btn.primary {
@@ -634,7 +634,7 @@
 }
 
 .carrera-action-btn.ghost:hover {
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--theme-ghost-hover);
   color: var(--c-text);
 }
 

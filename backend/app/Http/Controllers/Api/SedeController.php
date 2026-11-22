@@ -47,7 +47,7 @@ class SedeController extends Controller
     {
         $sede = Sede::with(['careers' => function ($q) {
             $q->where('careers.is_active', true)->orderBy('careers.name');
-        }])->findOrFail($id);
+        }])->where('is_active', true)->findOrFail($id);
 
         return response()->json($this->transform($sede));
     }

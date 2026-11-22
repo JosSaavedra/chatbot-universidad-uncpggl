@@ -45,17 +45,16 @@ function PrivacyModal({ onClose }) {
             puede ser simulada o de ejemplo.
           </p>
           <p>
-            <strong>Procesamiento con IA.</strong> Tus mensajes se envían a un
-            servicio de IA (Groq) para redactar la respuesta.
+            <strong>Procesamiento con IA.</strong> Groq puede recibir el mensaje actual para responder consultas generales.
           </p>
           <p>
             <strong>Datos sensibles.</strong> No ingreses contraseñas, datos
             bancarios ni otra información personal sensible.
           </p>
           <p>
-            <strong>Historial.</strong> La conversación se conserva durante la
-            sesión para mostrar el historial y puedes borrarla con «Nueva
-            conversación».
+            <strong>Historial.</strong> El historial se guarda en el servidor. Puedes eliminarlo con
+            «Borrar historial y empezar de nuevo». El acceso al historial de invitado
+            caduca 24 horas después de crear la conversación.
           </p>
         </div>
       </div>

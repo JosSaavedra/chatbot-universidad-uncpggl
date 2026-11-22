@@ -1,23 +1,28 @@
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000/api";
+import { getToken, sessionFetch, sessionScope } from "./authService.js";
 
-const getSessionId = () => {
-  let sessionId = localStorage.getItem("chat_session_id");
-  if (!sessionId) {
-    sessionId = "sess_" + Math.random().toString(36).substring(2, 11) + "_" + Date.now();
-    localStorage.setItem("chat_session_id", sessionId);
+const API_URL = import.meta.env?.VITE_API_URL || "http://localhost:8000/api";
+
+const chatKey = (token) => `chat_session_id:${sessionScope(token)}`;
+
+const readConversation = (raw, token) => {
+  if (!raw) return null;
+  try {
+    const session = JSON.parse(raw);
+    return typeof session?.id === "string" && (token || typeof session.guestToken === "string")
+      ? session
+      : null;
+  } catch {
+    return token ? { id: raw } : null;
   }
-  return sessionId;
 };
 
 export const sendMessage = async (message) => {
   // Si hay sesión iniciada se usa el endpoint autenticado para que el bot
   // pueda responder con la información personal (p. ej. el horario propio).
-  let token = null;
-  try {
-    token = localStorage.getItem("uncpggl_token");
-  } catch {
-    /* localStorage no disponible */
-  }
+  const token = getToken();
+  const key = chatKey(token);
+  const raw = localStorage.getItem(key);
+  const session = readConversation(raw, token);
 
   const endpoint = token ? "chat/auth" : "chat";
   const headers = {
@@ -26,50 +31,83 @@ export const sendMessage = async (message) => {
   };
   if (token) {
     headers.Authorization = `Bearer ${token}`;
+  } else if (session) {
+    headers["X-Chat-Guest-Token"] = session.guestToken;
   }
 
-  const response = await fetch(`${API_URL}/${endpoint}`, {
+  const response = await sessionFetch(`${API_URL}/${endpoint}`, {
     method: "POST",
     headers,
     body: JSON.stringify({
       message,
-      session_id: getSessionId(),
+      session_id: session?.id,
     }),
   });
 
   if (!response.ok) {
+    if (response.status === 403 && getToken() === token && localStorage.getItem(key) === raw) {
+      localStorage.removeItem(key);
+    }
     const err = await response.json().catch(() => ({}));
     const error = new Error(err?.message || `Error ${response.status}`);
     error.status = response.status;
     throw error;
   }
 
-  return response.json();
+  const data = await response.json();
+  if (getToken() === token && localStorage.getItem(key) === raw && typeof data.session_id === "string") {
+    const guestToken = data.guest_token ?? session?.guestToken;
+    if (token || typeof guestToken === "string") {
+      localStorage.setItem(key, JSON.stringify({ id: data.session_id, guestToken }));
+    }
+  }
+  return data;
 };
 
 export const loadHistory = async () => {
-  const sessionId = getSessionId();
+  const token = getToken();
+  const key = chatKey(token);
+  const raw = localStorage.getItem(key);
+  const session = readConversation(raw, token);
+  if (!session) return [];
 
   // El historial de una conversación personal exige el token del dueño; el
   // backend responde 403 si intenta leerse sin autorización.
   const headers = { Accept: "application/json" };
-  try {
-    const token = localStorage.getItem("uncpggl_token");
-    if (token) headers.Authorization = `Bearer ${token}`;
-  } catch {
-    /* localStorage no disponible */
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  } else {
+    headers["X-Chat-Guest-Token"] = session.guestToken;
   }
 
-  const response = await fetch(`${API_URL}/chat/history?session_id=${sessionId}`, {
+  const response = await sessionFetch(`${API_URL}/chat/history?session_id=${encodeURIComponent(session.id)}`, {
     headers,
   });
 
+  if (response.status === 403 && getToken() === token && localStorage.getItem(key) === raw) {
+    localStorage.removeItem(key);
+  }
   if (!response.ok) return [];
 
   const data = await response.json();
   return data.messages || [];
 };
 
-export const clearSession = () => {
-  localStorage.removeItem("chat_session_id");
+export const deleteHistory = async () => {
+  const token = getToken();
+  const key = chatKey(token);
+  const raw = localStorage.getItem(key);
+  const session = readConversation(raw, token);
+  if (!session) return;
+
+  const headers = { Accept: "application/json" };
+  if (token) headers.Authorization = `Bearer ${token}`;
+  else headers["X-Chat-Guest-Token"] = session.guestToken;
+
+  const response = await sessionFetch(`${API_URL}/chat/history?session_id=${encodeURIComponent(session.id)}`, {
+    method: "DELETE",
+    headers,
+  });
+  if (!response.ok) throw new Error("No se pudo confirmar el borrado del historial.");
+  if (getToken() === token && localStorage.getItem(key) === raw) localStorage.removeItem(key);
 };

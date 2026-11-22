@@ -8,7 +8,7 @@
 .career-suggest-head {
   font-size: 0.82rem;
   font-weight: 600;
-  color: #fca5a5;
+  color: var(--theme-accent-soft);
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
@@ -24,11 +24,11 @@
   align-items: center;
   gap: 12px;
   text-align: left;
-  background: #111827;
-  border: 1px solid #334155;
+  background: var(--theme-card);
+  border: 1px solid var(--theme-border-strong);
   border-radius: 12px;
   padding: 10px 12px;
-  color: #e2e8f0;
+  color: var(--theme-text);
   font-family: inherit;
   cursor: pointer;
   transition: border-color 0.2s, background 0.2s, transform 0.15s;
@@ -36,7 +36,7 @@
 
 .career-suggest-item:hover {
   border-color: #991b1b;
-  background: #16202f;
+  background: var(--theme-hover);
   transform: translateY(-1px);
 }
 
@@ -68,12 +68,12 @@
 .career-suggest-name {
   font-size: 0.95rem;
   font-weight: 600;
-  color: #f8fafc;
+  color: var(--theme-heading);
 }
 
 .career-suggest-meta {
   font-size: 0.78rem;
-  color: #94a3b8;
+  color: var(--theme-muted);
 }
 
 .career-suggest-cost {
@@ -81,18 +81,18 @@
   flex-wrap: wrap;
   gap: 4px 12px;
   font-size: 0.78rem;
-  color: #cbd5e1;
+  color: var(--theme-text-soft);
   margin-top: 2px;
 }
 
 .career-suggest-cost strong {
-  color: #f8fafc;
+  color: var(--theme-heading);
   font-weight: 600;
 }
 
 .career-suggest-cta {
   font-size: 0.78rem;
-  color: #fca5a5;
+  color: var(--theme-accent-soft);
   margin-top: 2px;
 }
 
@@ -121,9 +121,9 @@
 }
 
 .career-suggest-payments {
-  background: #1f2937;
-  border: 1px solid #334155;
-  color: #e2e8f0;
+  background: var(--theme-surface-2);
+  border: 1px solid var(--theme-border-strong);
+  color: var(--theme-text);
   border-radius: 10px;
   padding: 9px 12px;
   font-size: 0.82rem;
@@ -135,6 +135,6 @@
 
 .career-suggest-payments:hover {
   border-color: #991b1b;
-  background: #16202f;
+  background: var(--theme-hover);
   transform: translateY(-1px);
 }

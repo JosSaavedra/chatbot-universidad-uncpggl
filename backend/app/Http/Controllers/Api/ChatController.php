@@ -9,6 +9,8 @@ use App\Models\Message;
 use App\Models\Student;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Contracts\Encryption\DecryptException;
+use Illuminate\Support\Facades\Crypt;
 
 class ChatController extends Controller
 {
@@ -18,11 +20,11 @@ class ChatController extends Controller
     {
         $request->validate([
             'message'    => 'required|string|max:500',
-            'session_id' => 'required|string',
+            'session_id' => 'nullable|string|max:255',
         ]);
 
         $conversation = $this->conversationFor(
-            (string) $request->input('session_id'),
+            $request,
             null,
             (string) $request->input('message'),
         );
@@ -48,7 +50,8 @@ class ChatController extends Controller
         // Se identifica la intención del estudiante para decidir qué tarjeta
         // mostrar (horario, pagos, calendario, admisión, opciones de matrícula
         // o carreras). En el endpoint público no hay estudiante identificado.
-        $suggestions = $this->chatbot->chatSuggestions($request->input('message'), null, $history);
+        $suggestions = $result['intent'] === 'carnet_not_found'
+            ? null : $this->chatbot->chatSuggestions($request->input('message'), null, $history);
 
         Message::create([
             'conversation_id' => $conversation->id,
@@ -58,60 +61,68 @@ class ChatController extends Controller
             'data'            => $suggestions,
         ]);
 
-        return response()->json([
+        $payload = [
             'reply'      => $result['text'],
             'intent'     => $result['intent'],
             'data'       => $suggestions,
             'session_id' => $conversation->session_id,
-        ]);
+        ];
+        if ($conversation->wasRecentlyCreated) {
+            $payload['guest_token'] = Crypt::encryptString(json_encode([
+                'session' => $conversation->session_id,
+                'expires' => now()->addDay()->timestamp,
+            ], JSON_THROW_ON_ERROR));
+        }
+
+        return response()->json($payload);
     }
 
     public function getHistory(Request $request): JsonResponse
     {
-        $request->validate(['session_id' => 'required|string']);
-
-        $conversation = Conversation::where('session_id', $request->input('session_id'))->first();
-
-        if (!$conversation) {
-            return response()->json(['messages' => []]);
-        }
-
-        // Las conversaciones ligadas a una cuenta pueden contener datos
-        // personales (horario, pagos, notas): solo las lee su dueño.
-        if ($conversation->user_id !== null) {
-            $user = auth('sanctum')->user();
-
-            if (!$user || (int) $user->id !== (int) $conversation->user_id) {
-                return response()->json([
-                    'message' => 'No autorizado para consultar esta conversación.',
-                ], 403);
-            }
-        }
+        $request->validate(['session_id' => 'required|string|max:255']);
+        $userId = $this->historyOwner($request);
+        $conversation = $this->existingConversation($request, $userId);
 
         $messages = Message::where('conversation_id', $conversation->id)
+            ->when($userId === null, fn ($query) => $query->whereNull('user_id'))
             ->orderBy('created_at')
-            ->get(['role', 'content', 'data', 'created_at']);
+            ->get(['user_id', 'role', 'content', 'data', 'created_at'])
+            ->makeHidden('user_id');
 
         return response()->json(['messages' => $messages]);
+    }
+
+    public function destroy(Request $request): JsonResponse
+    {
+        $request->validate(['session_id' => 'required|string|max:255']);
+        $this->existingConversation($request, $this->historyOwner($request))->delete();
+
+        return response()->json(null, 204);
+    }
+
+    private function historyOwner(Request $request): ?int
+    {
+        $userId = auth('sanctum')->id();
+        abort_if($request->bearerToken() !== null && $userId === null, 401);
+
+        return $userId;
     }
 
     public function sendAuth(Request $request): JsonResponse
     {
         $request->validate([
             'message'    => 'required|string|max:500',
-            'session_id' => 'nullable|string',
+            'session_id' => 'nullable|string|max:255',
         ]);
 
         $userId    = (int) $request->user()->id;
-        $sessionId = (string) ($request->input('session_id') ?: 'auth_' . $userId);
-
         $conversation = $this->conversationFor(
-            $sessionId,
+            $request,
             $userId,
             (string) $request->input('message'),
         );
 
-        $history = $this->historyFor($conversation);
+        $history = $this->historyFor($conversation, $userId);
 
         Message::create([
             'conversation_id' => $conversation->id,
@@ -129,7 +140,8 @@ class ChatController extends Controller
 
         // Para el horario personalizado se resuelve el estudiante de esta cuenta.
         $student = Student::where('user_id', $userId)->first();
-        $suggestions = $this->chatbot->chatSuggestions($request->input('message'), $student, $history);
+        $suggestions = $result['intent'] === 'carnet_not_found'
+            ? null : $this->chatbot->chatSuggestions($request->input('message'), $student, $history);
 
         Message::create([
             'conversation_id' => $conversation->id,
@@ -156,14 +168,15 @@ class ChatController extends Controller
      *
      * @return array<int, array{role:string, content:string, data:mixed}>
      */
-    private function historyFor(Conversation $conversation): array
+    private function historyFor(Conversation $conversation, ?int $userId = null): array
     {
         $exchanges = max(1, (int) config('chatbot.memory.exchanges', 6));
 
         return Message::where('conversation_id', $conversation->id)
+            ->when($userId === null, fn ($query) => $query->whereNull('user_id'))
             ->orderByDesc('id')
             ->take($exchanges * 2)
-            ->get(['role', 'content', 'data'])
+            ->get(['user_id', 'role', 'content', 'data'])
             ->reverse()
             ->values()
             ->map(fn (Message $m) => [
@@ -174,53 +187,42 @@ class ChatController extends Controller
             ->all();
     }
 
-    /**
-     * Resuelve la conversación a usar en una petición.
-     *
-     *  - Si no existe, se crea.
-     *  - En peticiones anónimas nunca se escribe en la conversación de un
-     *    usuario: se usa una conversación de invitado aparte.
-     *  - En peticiones autenticadas, una conversación anónima previa se reclama
-     *    para el usuario (así el historial personal queda protegido), y una
-     *    conversación de OTRA cuenta no se reutiliza.
-     */
-    private function conversationFor(string $sessionId, ?int $userId, string $message): Conversation
+    private function conversationFor(Request $request, ?int $userId, string $message): Conversation
     {
-        $title        = mb_substr($message, 0, 50);
-        $conversation = Conversation::where('session_id', $sessionId)->first();
-
-        if ($conversation === null) {
-            return Conversation::create([
-                'session_id' => $sessionId,
-                'user_id'    => $userId,
-                'title'      => $title,
-            ]);
+        if ($request->filled('session_id')) {
+            return $this->existingConversation($request, $userId);
         }
+
+        return Conversation::create([
+            'session_id' => bin2hex(random_bytes(32)),
+            'user_id' => $userId,
+            'title' => mb_substr($message, 0, 50),
+        ]);
+    }
+
+    private function existingConversation(Request $request, ?int $userId): Conversation
+    {
+        $sessionId = (string) $request->input('session_id');
 
         if ($userId === null) {
-            if ($conversation->user_id === null) {
-                return $conversation;
+            $proof = (string) $request->header('X-Chat-Guest-Token');
+            abort_if(strlen($proof) > 1024 || $proof === '', 403);
+            try {
+                $subject = json_decode(Crypt::decryptString($proof), true);
+            } catch (DecryptException) {
+                abort(403);
             }
-
-            // Conversación de un usuario: el invitado usa una propia.
-            return Conversation::firstOrCreate(
-                ['session_id' => $sessionId . '_guest'],
-                ['user_id' => null, 'title' => $title],
-            );
+            abort_unless(is_array($subject)
+                && is_int($subject['expires'] ?? null) && $subject['expires'] > now()->timestamp
+                && is_string($subject['session'] ?? null) && hash_equals($sessionId, $subject['session']), 403);
         }
 
-        if ($conversation->user_id === null) {
-            // La conversación anónima previa pasa a ser del usuario que inicia sesión.
-            $conversation->user_id = $userId;
-            $conversation->save();
+        $conversation = Conversation::where('session_id', $sessionId)
+            ->where('user_id', $userId)
+            ->first();
 
-            return $conversation;
-        }
+        abort_if($conversation === null, 403);
 
-        if ((int) $conversation->user_id === $userId) {
-            return $conversation;
-        }
-
-        abort(403, 'La sesión de conversación pertenece a otra cuenta.');
+        return $conversation;
     }
 }

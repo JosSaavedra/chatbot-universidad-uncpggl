@@ -3,8 +3,8 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
-  background: #111827;
-  border: 1px solid #334155;
+  background: var(--theme-card);
+  border: 1px solid var(--theme-border-strong);
   border-radius: 12px;
   padding: 14px;
 }
@@ -12,12 +12,12 @@
 .payment-suggest-head {
   font-size: 0.95rem;
   font-weight: 600;
-  color: #f8fafc;
+  color: var(--theme-heading);
 }
 
 .payment-suggest-sub {
   font-size: 0.76rem;
-  color: #94a3b8;
+  color: var(--theme-muted);
   margin-top: -4px;
 }
 
@@ -31,27 +31,27 @@
   display: flex;
   flex-direction: column;
   gap: 2px;
-  background: #1f2937;
-  border: 1px solid #334155;
+  background: var(--theme-surface-2);
+  border: 1px solid var(--theme-border-strong);
   border-radius: 10px;
   padding: 8px 10px;
 }
 
 .payment-suggest-summary-label {
   font-size: 0.72rem;
-  color: #94a3b8;
+  color: var(--theme-muted);
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
 
 .payment-suggest-summary-value {
   font-size: 0.95rem;
-  color: #f8fafc;
+  color: var(--theme-heading);
   font-weight: 600;
 }
 
 .payment-suggest-summary-value.pending {
-  color: #fca5a5;
+  color: var(--theme-accent-soft);
 }
 
 .payment-suggest-items {
@@ -64,8 +64,8 @@
 }
 
 .payment-suggest-item {
-  background: #1f2937;
-  border: 1px solid #334155;
+  background: var(--theme-surface-2);
+  border: 1px solid var(--theme-border-strong);
   border-radius: 10px;
   padding: 8px 10px;
   display: flex;
@@ -82,18 +82,18 @@
 
 .payment-suggest-item-line.meta {
   font-size: 0.76rem;
-  color: #94a3b8;
+  color: var(--theme-muted);
 }
 
 .payment-suggest-item-concept {
   font-size: 0.86rem;
-  color: #f1f5f9;
+  color: var(--theme-heading);
   font-weight: 600;
 }
 
 .payment-suggest-item-status {
   font-size: 0.72rem;
-  color: #94a3b8;
+  color: var(--theme-muted);
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
@@ -104,9 +104,9 @@
 }
 
 .payment-suggest-btn {
-  background: #1f2937;
-  border: 1px solid #334155;
-  color: #e2e8f0;
+  background: var(--theme-surface-2);
+  border: 1px solid var(--theme-border-strong);
+  color: var(--theme-text);
   border-radius: 10px;
   padding: 9px 13px;
   font-size: 0.81rem;
@@ -118,14 +118,14 @@
 
 .payment-suggest-btn:hover {
   border-color: #991b1b;
-  background: #16202f;
+  background: var(--theme-hover);
   transform: translateY(-1px);
 }
 
 .payment-suggest-link {
   background: transparent;
   border: none;
-  color: #fca5a5;
+  color: var(--theme-accent-soft);
   text-align: center;
   font-size: 0.82rem;
   cursor: pointer;
@@ -134,5 +134,5 @@
 }
 
 .payment-suggest-link:hover {
-  color: #fff;
+  color: var(--theme-heading);
 }

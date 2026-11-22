@@ -5,111 +5,142 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Student;
 use App\Models\User;
+use App\Services\LoginIdentity;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
+/**
+ * Autenticación local: carné (o correo) + contraseña individual.
+ *
+ * Decisiones de seguridad:
+ *
+ *  - el carné por sí solo NO autentica: la contraseña siempre se comprueba
+ *    con `Hash::check`;
+ *  - todos los fallos devuelven el mismo mensaje, el mismo código (422) y la
+ *    misma estructura, de modo que no se puede enumerar carnés ni distinguir
+ *    "cuenta inexistente" de "contraseña incorrecta";
+ *  - `Hash::check` se ejecuta siempre (contra un hash señuelo precalculado si
+ *    la cuenta no existe) para que el tiempo de respuesta tampoco revele si la
+ *    cuenta existe;
+ *  - la identidad se toma siempre del token de Sanctum; nunca de parámetros
+ *    enviados por el cliente;
+ *  - las cuentas de carnés que exigen QR + Google no pueden evadir ese
+ *    requisito iniciando sesión con contraseña.
+ */
 class AuthController extends Controller
 {
-    public function register(Request $request): JsonResponse
-    {
-        $data = $request->validate([
-            'name'     => 'required|string|max:255',
-            'email'    => 'required|email|unique:users,email',
-            'password' => 'required|string|min:8|confirmed',
-        ]);
+    /**
+     * Mensaje único para TODOS los fallos de autenticación.
+     */
+    private const INVALID_CREDENTIALS = 'Las credenciales no son correctas.';
 
-        $user = User::create([
-            'name'     => $data['name'],
-            'email'    => $data['email'],
-            'password' => Hash::make($data['password']),
-        ]);
+    /**
+     * Hash señuelo precalculado: se usa cuando la cuenta no existe o no puede
+     * autenticarse, para igualar el coste de la comprobación real. Nunca
+     * corresponde a una cuenta de la aplicación.
+     */
+    private const DUMMY_HASH = '$2y$12$w6CG/dti3v2exvX4cOZRr.6/JWo9v1AqIfZkCBUjO4TCflIMdxAKy';
 
-        $token = $user->createToken('chatbot-token')->plainTextToken;
-
-        return response()->json(['user' => $user, 'token' => $token], 201);
-    }
-
+    /**
+     * Inicio de sesión con carné (o correo) y contraseña individual.
+     */
     public function login(Request $request): JsonResponse
     {
-        $data = $request->validate([
-            'email'    => 'required|email',
-            'password' => 'required|string',
-        ]);
+        $identity = LoginIdentity::fromRequest($request);
+        $password = $request->input('password');
 
-        $user = User::where('email', $data['email'])->first();
-
-        if (! $user || ! Hash::check($data['password'], $user->password)) {
-            throw ValidationException::withMessages([
-                'email' => ['Las credenciales no son correctas.'],
-            ]);
+        // Todos los fallos de credenciales (identificador ausente, contraseña
+        // ausente o formato inválido) usan exactamente la misma respuesta.
+        if ($identity->identifier === '' || ! is_string($password) || $password === ''
+            || strlen($password) > 200 || str_contains($password, "\0")) {
+            throw ValidationException::withMessages(['carnet' => [self::INVALID_CREDENTIALS]]);
         }
 
-        $user->tokens()->delete();
-        $token = $user->createToken('chatbot-token')->plainTextToken;
+        $user = $identity->user;
 
-        return response()->json(['user' => $user, 'token' => $token]);
+        // La comprobación se ejecuta SIEMPRE: si no hay cuenta se usa un hash
+        // señuelo, de modo que el tiempo de respuesta sea equivalente.
+        $passwordMatches = Hash::check($password, $user?->password ?? self::DUMMY_HASH);
+
+        // Las bases sembradas antes de la Fase 2 pueden conservar esta clave compartida.
+        if (! $user || ! $passwordMatches || $password === 'password123' || ! $this->mayAuthenticate($user)) {
+            throw ValidationException::withMessages(['carnet' => [self::INVALID_CREDENTIALS]]);
+        }
+
+        // Sesión única: los tokens anteriores se revocan sólo tras autenticar
+        // correctamente (un intento fallido nunca invalida una sesión legítima).
+        $token = DB::transaction(function () use ($user) {
+            $current = User::whereKey($user->id)->lockForUpdate()->first();
+            if (!$current || $current->password !== $user->password || !$this->mayAuthenticate($current)) {
+                throw ValidationException::withMessages(['carnet' => [self::INVALID_CREDENTIALS]]);
+            }
+            $current->tokens()->delete();
+
+            return $current->createToken('password-login')->plainTextToken;
+        }, 3);
+
+        $student = Student::where('user_id', $user->id)->first();
+
+        return response()->json([
+            'user' => $user,
+            'student' => $student ? [
+                'carnet' => $student->student_code,
+                'year' => $student->year_of_study,
+                'group' => $student->group_code,
+            ] : null,
+            'token' => $token,
+            'idle_minutes' => config('student_access.idle_minutes'),
+            'expires_at' => now()->addMinutes(config('sanctum.expiration'))->toISOString(),
+        ]);
     }
 
     public function logout(Request $request): JsonResponse
     {
         $request->user()->currentAccessToken()->delete();
+
         return response()->json(['message' => 'Sesión cerrada correctamente.']);
     }
 
     /**
-     * Inicio de sesión mediante el código del carné.
+     * Comprueba que la cuenta puede autenticarse con contraseña:
      *
-     * Pensado para el prototipo de la tesis: el estudiante se identifica con su
-     * carné y se emite un token Sanctum asociado a su cuenta. La consulta de
-     * horarios personales exige esta sesión y sólo devuelve la información del
-     * propio estudiante.
-     *
-     * SEGURIDAD (uso real, fuera del prototipo): un carné por sí solo NO es un
-     * factor de autenticación suficiente (es público y adivinable). Para
-     * estudiantes reales este endpoint debe exigir, además del carné, un
-     * segundo factor verificable (por ejemplo un PIN/contraseña personal u OTP
-     * enviado al correo institucional, o el inicio de sesión institucional
-     * SSO). El límite de intentos (throttle) reduce la fuerza bruta pero no
-     * sustituye la verificación. No se amplía ni se debilita el mecanismo
-     * actual mientras la demo use únicamente estudiantes ficticios.
+     *  - los administradores legítimos conservan su acceso;
+     *  - una cuenta sin ficha de estudiante no accede;
+     *  - los carnés que exigen QR + Google no pueden evadirlo con contraseña;
+     *  - el estudiante debe estar activo.
      */
-    public function loginCarnet(Request $request): JsonResponse
+    private function mayAuthenticate(User $user): bool
     {
-        $data = $request->validate([
-            'carnet' => 'required|string|max:40',
-        ]);
+        if ($user->is_admin) {
+            return true;
+        }
 
-        $carnet = trim($data['carnet']);
-
-        $student = Student::whereRaw('LOWER(student_code) = ?', [mb_strtolower($carnet)])->first();
+        $student = Student::where('user_id', $user->id)->first();
 
         if (! $student) {
-            throw ValidationException::withMessages([
-                'carnet' => ['No encontramos un estudiante con ese carné.'],
-            ]);
+            return false;
         }
 
-        $user = User::find($student->user_id);
-
-        if (! $user) {
-            throw ValidationException::withMessages([
-                'carnet' => ['La cuenta asociada a ese carné no está disponible.'],
-            ]);
+        if ($this->requiresQrGoogle($student)) {
+            return false;
         }
 
-        $user->tokens()->delete();
-        $token = $user->createToken('chatbot-token')->plainTextToken;
+        return $student->status === 'active';
+    }
 
-        return response()->json([
-            'user'    => $user,
-            'student' => [
-                'carnet' => $student->student_code,
-                'year'   => $student->year_of_study,
-                'group'  => $student->group_code,
-            ],
-            'token'   => $token,
-        ]);
+    /**
+     * Un carné configurado en `qr_auth.protected_carnets` exige la ceremonia
+     * QR + Google: la contraseña no es un método alternativo válido.
+     */
+    private function requiresQrGoogle(Student $student): bool
+    {
+        return in_array(
+            mb_strtolower((string) $student->student_code),
+            array_map('mb_strtolower', (array) config('qr_auth.protected_carnets', [])),
+            true,
+        );
     }
 }

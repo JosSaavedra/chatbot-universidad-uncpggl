@@ -1,5 +1,17 @@
 <?php
 return [
+    'google' => [
+        'client_id' => env('GOOGLE_CLIENT_ID'),
+        // GOOGLE_SECRET se acepta como alias por despliegues que ya lo usan en Render.
+        // El operador ?: también cubre el caso de que la variable exista pero vacía.
+        'client_secret' => env('GOOGLE_CLIENT_SECRET') ?: env('GOOGLE_SECRET'),
+        'redirect' => env('GOOGLE_REDIRECT_URI', env('APP_URL', 'http://localhost:8000').'/auth/google/callback'),
+        // Las URL de autoración/token sólo se sustituyen en pruebas aisladas.
+        'auth_url' => env('GOOGLE_AUTH_URL', 'https://accounts.google.com/o/oauth2/v2/auth'),
+        'token_url' => env('GOOGLE_TOKEN_URL', 'https://oauth2.googleapis.com/token'),
+        'jwks_url' => env('GOOGLE_JWKS_URL', 'https://www.googleapis.com/oauth2/v3/certs'),
+    ],
+
     'postmark' => [
         'token' => env('POSTMARK_TOKEN'),
     ],
@@ -19,10 +31,9 @@ return [
     ],
 
     'groq' => [
-        // Se acepta GROQ_API_KEY y, por compatibilidad con despliegues previos, OPENAI_API_KEY.
-        'key' => env('GROQ_API_KEY') ?: env('OPENAI_API_KEY'),
+        'key' => env('GROQ_API_KEY'),
         'url' => env('GROQ_URL', 'https://api.groq.com/openai/v1/chat/completions'),
         'model' => env('GROQ_MODEL', 'openai/gpt-oss-20b'),
-        'timeout' => (int) env('GROQ_TIMEOUT', 30),
+        'timeout' => max(1, min(4, (int) env('GROQ_TIMEOUT', 4))),
     ],
 ];

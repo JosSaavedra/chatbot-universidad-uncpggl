@@ -92,7 +92,7 @@ class TeacherSeeder extends Seeder
 
                 $rows[] = [
                     'full_name'  => "{$title} {$first} {$last1} {$last2}",
-                    'email'      => 'docente.' . ($f + 1) . '.' . ($i + 1) . '@uncpggl.edu.ni',
+                    'email'      => 'docente.' . ($f + 1) . '.' . ($i + 1) . '@example.com',
                     'phone'      => '2' . str_pad((string) (7000000 + $f * 100000 + $i * 137), 7, '0', STR_PAD_LEFT),
                     'area'       => $faculty,
                     'title'      => $title,

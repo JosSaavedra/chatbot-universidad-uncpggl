@@ -1,3 +1,5 @@
+import { sessionFetch } from "./authService";
+
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000/api";
 
 /**
@@ -9,7 +11,7 @@ const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000/api";
  * El error incluye `status` para distinguir una sesión expirada (401).
  */
 export const fetchMyGrades = async (token) => {
-  const response = await fetch(`${API_URL}/my-grades`, {
+  const response = await sessionFetch(`${API_URL}/my-grades`, {
     headers: {
       Accept: "application/json",
       ...(token ? { Authorization: `Bearer ${token}` } : {}),

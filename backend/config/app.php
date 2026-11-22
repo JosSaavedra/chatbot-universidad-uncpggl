@@ -6,7 +6,9 @@ return [
 
     'env' => env('APP_ENV', 'production'),
 
-    'debug' => (bool) env('APP_DEBUG', false),
+    'debug' => ! env('RENDER', false)
+        && in_array(env('APP_ENV', 'production'), ['local', 'testing'], true)
+        && (bool) env('APP_DEBUG', false),
 
 
     'url' => env('APP_URL', 'http://localhost'),

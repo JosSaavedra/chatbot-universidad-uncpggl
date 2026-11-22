@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Career;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Gate;
 
 class CareerController extends Controller
 {
@@ -27,6 +28,10 @@ class CareerController extends Controller
 
     public function store(Request $request): JsonResponse
     {
+        // Alta de carrera: exclusiva de administradores (defensa en profundidad
+        // además del middleware `admin` de la ruta).
+        Gate::authorize('create', Career::class);
+
         $validated = $request->validate([
             'code' => 'required|string|unique:careers,code',
             'name' => 'required|string|max:255',
@@ -50,6 +55,9 @@ class CareerController extends Controller
 
     public function show(Career $career): JsonResponse
     {
+        // Ficha de carrera: visible para cualquier usuario autenticado.
+        Gate::authorize('view', $career);
+
         $career->load([
             'sedes' => function ($q) {
                 $q->where('sedes.is_active', true)->orderByDesc('sedes.is_main')->orderBy('sedes.name');
@@ -62,6 +70,11 @@ class CareerController extends Controller
 
     public function update(Request $request, Career $career): JsonResponse
     {
+        // Modificar una carrera (aranceles, estado, datos administrativos):
+        // exclusiva de administradores. Un estudiante no puede alterar ni los
+        // campos administrativos ni el arancel.
+        Gate::authorize('update', $career);
+
         $validated = $request->validate([
             'code' => 'string|unique:careers,code,' . $career->id,
             'name' => 'string|max:255',
@@ -86,6 +99,9 @@ class CareerController extends Controller
 
     public function destroy(Career $career): JsonResponse
     {
+        // Borrado de carrera: exclusivo de administradores.
+        Gate::authorize('delete', $career);
+
         $career->delete();
         return response()->json(['message' => 'Carrera eliminada de forma lógica o física'], 200);
     }

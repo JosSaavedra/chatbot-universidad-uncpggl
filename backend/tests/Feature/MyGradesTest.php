@@ -76,17 +76,17 @@ class MyGradesTest extends TestCase
     public function test_student_sees_only_their_own_grades(): void
     {
         $career = $this->career();
-        [$userA] = $this->makeStudent($career, '2024-CON-001', 'Gabriela Castillo');
+        [$userA] = $this->makeStudent($career, '2024-CON-099', 'Gabriela Castillo');
         [$userB] = $this->makeStudent($career, '2024-MED-001', 'María José Téllez');
 
         $this->makeGrade($userA, $career, ['subject_name' => 'Contabilidad General']);
         $this->makeGrade($userB, $career, ['subject_name' => 'Anatomía Humana']);
 
-        $token = $userA->createToken('test')->plainTextToken;
+        $token = $userA->createToken('password-login')->plainTextToken;
 
         $response = $this->withToken($token)->getJson('/api/my-grades')->assertOk();
 
-        $response->assertJsonPath('data.student.carnet', '2024-CON-001');
+        $response->assertJsonPath('data.student.carnet', '2024-CON-099');
         $response->assertJsonPath('data.student.name', 'Gabriela Castillo');
         $response->assertJsonPath('data.student.career', 'Contabilidad Pública y Finanzas');
         $response->assertJsonCount(1, 'data.periods');
@@ -102,32 +102,32 @@ class MyGradesTest extends TestCase
     public function test_my_grades_ignores_another_user_id_or_carnet(): void
     {
         $career = $this->career();
-        [$userA] = $this->makeStudent($career, '2024-CON-001', 'Gabriela Castillo');
+        [$userA] = $this->makeStudent($career, '2024-CON-099', 'Gabriela Castillo');
         [$userB] = $this->makeStudent($career, '2024-MED-001', 'María José Téllez');
 
         $this->makeGrade($userA, $career, ['subject_name' => 'Contabilidad General']);
         $this->makeGrade($userB, $career, ['subject_name' => 'Anatomía Humana']);
 
-        $token = $userA->createToken('test')->plainTextToken;
+        $token = $userA->createToken('password-login')->plainTextToken;
 
         // Intento de "cambiar de identidad" por query string: se ignora.
         $response = $this->withToken($token)
             ->getJson('/api/my-grades?user_id=' . $userB->id . '&carnet=2024-MED-001')
             ->assertOk();
 
-        $response->assertJsonPath('data.student.carnet', '2024-CON-001');
+        $response->assertJsonPath('data.student.carnet', '2024-CON-099');
         $this->assertStringNotContainsString('Anatomía Humana', $response->getContent());
     }
 
     public function test_my_grades_are_grouped_by_academic_period(): void
     {
         $career = $this->career();
-        [$user] = $this->makeStudent($career, '2023-ISI-001', 'Carlos Mendoza');
+        [$user] = $this->makeStudent($career, 'TEST-ISI-001', 'Carlos Mendoza');
 
         $this->makeGrade($user, $career, ['subject_name' => 'Programación I', 'period' => '2025 · I']);
         $this->makeGrade($user, $career, ['subject_name' => 'Bases de Datos', 'period' => '2025 · II']);
 
-        $token = $user->createToken('test')->plainTextToken;
+        $token = $user->createToken('password-login')->plainTextToken;
 
         $this->withToken($token)->getJson('/api/my-grades')
             ->assertOk()
@@ -139,9 +139,9 @@ class MyGradesTest extends TestCase
     public function test_my_grades_reports_no_records_when_there_are_none(): void
     {
         $career = $this->career();
-        [$user] = $this->makeStudent($career, '2024-ADM-001', 'Estudiante Sin Notas');
+        [$user] = $this->makeStudent($career, 'TEST-ADM-001', 'Estudiante Sin Notas');
 
-        $token = $user->createToken('test')->plainTextToken;
+        $token = $user->createToken('password-login')->plainTextToken;
 
         $this->withToken($token)->getJson('/api/my-grades')
             ->assertOk()
@@ -152,13 +152,13 @@ class MyGradesTest extends TestCase
     public function test_grades_index_only_returns_the_authenticated_students_own_grades(): void
     {
         $career = $this->career();
-        [$userA] = $this->makeStudent($career, '2024-CON-001', 'Gabriela Castillo');
+        [$userA] = $this->makeStudent($career, '2024-CON-099', 'Gabriela Castillo');
         [$userB] = $this->makeStudent($career, '2024-MED-001', 'María José Téllez');
 
         $this->makeGrade($userA, $career);
         $this->makeGrade($userB, $career);
 
-        $token = $userA->createToken('test')->plainTextToken;
+        $token = $userA->createToken('password-login')->plainTextToken;
 
         $response = $this->withToken($token)->getJson('/api/grades')->assertOk();
 
@@ -170,12 +170,12 @@ class MyGradesTest extends TestCase
     public function test_a_student_cannot_view_another_students_grade(): void
     {
         $career = $this->career();
-        [$userA] = $this->makeStudent($career, '2024-CON-001', 'Gabriela Castillo');
+        [$userA] = $this->makeStudent($career, '2024-CON-099', 'Gabriela Castillo');
         [$userB] = $this->makeStudent($career, '2024-MED-001', 'María José Téllez');
 
         $gradeB = $this->makeGrade($userB, $career);
 
-        $token = $userA->createToken('test')->plainTextToken;
+        $token = $userA->createToken('password-login')->plainTextToken;
 
         $this->withToken($token)->getJson('/api/grades/' . $gradeB->id)->assertStatus(403);
     }
@@ -183,9 +183,9 @@ class MyGradesTest extends TestCase
     public function test_a_student_cannot_create_grades(): void
     {
         $career = $this->career();
-        [$user] = $this->makeStudent($career, '2024-CON-001', 'Gabriela Castillo');
+        [$user] = $this->makeStudent($career, '2024-CON-099', 'Gabriela Castillo');
 
-        $token = $user->createToken('test')->plainTextToken;
+        $token = $user->createToken('password-login')->plainTextToken;
 
         $this->withToken($token)->postJson('/api/grades', [
             'user_id'      => $user->id,
@@ -199,10 +199,10 @@ class MyGradesTest extends TestCase
     public function test_a_student_cannot_update_or_delete_grades(): void
     {
         $career = $this->career();
-        [$user] = $this->makeStudent($career, '2024-CON-001', 'Gabriela Castillo');
+        [$user] = $this->makeStudent($career, '2024-CON-099', 'Gabriela Castillo');
         $grade = $this->makeGrade($user, $career);
 
-        $token = $user->createToken('test')->plainTextToken;
+        $token = $user->createToken('password-login')->plainTextToken;
 
         $this->withToken($token)
             ->putJson('/api/grades/' . $grade->id, ['final_grade' => 100])
@@ -216,10 +216,10 @@ class MyGradesTest extends TestCase
     public function test_an_admin_can_manage_grades(): void
     {
         $career = $this->career();
-        [$studentUser] = $this->makeStudent($career, '2024-CON-001', 'Gabriela Castillo');
+        [$studentUser] = $this->makeStudent($career, '2024-CON-099', 'Gabriela Castillo');
 
         $admin = User::factory()->create(['is_admin' => true]);
-        $token = $admin->createToken('test')->plainTextToken;
+        $token = $admin->createToken('password-login')->plainTextToken;
 
         // Crear
         $created = $this->withToken($token)->postJson('/api/grades', [
@@ -247,14 +247,14 @@ class MyGradesTest extends TestCase
     public function test_an_admin_can_list_all_grades(): void
     {
         $career = $this->career();
-        [$userA] = $this->makeStudent($career, '2024-CON-001', 'Gabriela Castillo');
+        [$userA] = $this->makeStudent($career, '2024-CON-099', 'Gabriela Castillo');
         [$userB] = $this->makeStudent($career, '2024-MED-001', 'María José Téllez');
 
         $this->makeGrade($userA, $career);
         $this->makeGrade($userB, $career);
 
         $admin = User::factory()->create(['is_admin' => true]);
-        $token = $admin->createToken('test')->plainTextToken;
+        $token = $admin->createToken('password-login')->plainTextToken;
 
         $this->withToken($token)->getJson('/api/grades')
             ->assertOk()
@@ -285,7 +285,7 @@ class MyGradesTest extends TestCase
         $this->assertFalse($suggestion['personalized']);
 
         $career = $this->career();
-        [, $student] = $this->makeStudent($career, '2024-CON-001', 'Gabriela Castillo');
+        [, $student] = $this->makeStudent($career, '2024-CON-099', 'Gabriela Castillo');
 
         $personalized = $service->chatSuggestions('¿Cuáles son mis notas?', $student);
         $this->assertSame('grades', $personalized['type']);

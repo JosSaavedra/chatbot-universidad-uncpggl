@@ -1,3 +1,5 @@
+import { sessionFetch } from "./authService";
+
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000/api";
 
 const readJson = async (response) => {
@@ -15,7 +17,7 @@ const readJson = async (response) => {
  */
 export const fetchMySchedule = async (token) =>
   readJson(
-    await fetch(`${API_URL}/my-schedule`, {
+    await sessionFetch(`${API_URL}/my-schedule`, {
       headers: {
         Accept: "application/json",
         ...(token ? { Authorization: `Bearer ${token}` } : {}),

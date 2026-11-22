@@ -38,9 +38,9 @@ export const emptyScheduleMessage = (query) => {
 };
 
 /**
- * Selección (carrera/año/grupo) para abrir la vista completa de horarios.
+ * Selección pública (carrera/año/grupo) para abrir la vista completa de horarios.
  */
-export const selectionFromSchedule = (schedule) => ({
+export const selectionFromSchedule = (schedule) => schedule?.personalized ? null : ({
   careerId: schedule?.career_id ?? null,
   year: schedule?.year ?? null,
   group: schedule?.group ?? null,

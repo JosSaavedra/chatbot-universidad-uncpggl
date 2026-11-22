@@ -19,6 +19,16 @@ class PaymentController extends Controller
      */
     public function lookup(Request $request): JsonResponse
     {
+        return $this->paymentsFor($request);
+    }
+
+    public function receipt(Request $request, int $id): JsonResponse
+    {
+        return $this->paymentsFor($request, $id);
+    }
+
+    private function paymentsFor(Request $request, ?int $id = null): JsonResponse
+    {
         $student = Student::with(['user', 'career'])
             ->where('user_id', $request->user()->id)
             ->first();
@@ -39,6 +49,7 @@ class PaymentController extends Controller
         }
 
         $payments = Payment::where('student_id', $student->id)
+            ->when($id !== null, fn ($query) => $query->whereKey($id))
             ->orderByDesc('due_date')
             ->orderByDesc('id')
             ->get()
@@ -56,6 +67,13 @@ class PaymentController extends Controller
                 'paid_at' => $p->paid_at?->toDateTimeString(),
                 'reference' => $p->reference,
             ]);
+
+        if ($id !== null) {
+            abort_if($payments->isEmpty(), 404);
+            return response()->json(['data' => ['payment' => $payments->first(), 'student' => [
+                'name' => $student->user->name, 'carnet' => $student->student_code, 'career' => $student->career?->name,
+            ]]]);
+        }
 
         $paidCount = $payments->where('status', 'pagado')->count();
         $pendingCount = $payments->whereIn('status', ['pendiente', 'vencido'])->count();

@@ -23,50 +23,25 @@ El asistente responde en dos capas:
 Solo se envía:
 
 - El **mensaje** que escribe la persona.
-- Una **ventana limitada** de la conversación actual (ver sección 4).
+- Una **ventana limitada** de la conversación actual de invitado (ver sección 4).
 - El **contexto** que el servidor decide incluir (sección 3).
 - Instrucciones del sistema (tono, formato, reglas de privacidad).
 
-## 3. Minimización de datos (`config/chatbot.php`)
+## 3. Minimización de datos
 
-| Dato | ¿Se envía a la IA? | Control |
-| --- | --- | --- |
-| Nombre del estudiante | **No** (por defecto) | `chatbot.privacy.send_identity` |
-| Carné / código de estudiante | **No** (por defecto) | `chatbot.privacy.send_identity` |
-| Carrera y año del estudiante | Sí (necesario para «mi horario») | — |
-| Notas / calificaciones | Solo si la consulta las pide | `send_personal_data` + intención |
-| Exámenes personales | Solo si la consulta los pide | `send_personal_data` + intención |
-| Becas | Solo si la consulta las pide | `send_personal_data` + intención |
-| Tutorías | Solo si la consulta las pide | `send_personal_data` + intención |
-| Pagos / recibos | **No** (se muestran en su módulo) | — |
-| Horario del estudiante | Sí (dato de demostración) | — |
+Laravel resuelve el saludo por carné, los horarios personalizados, los pagos,
+las calificaciones, las becas, los exámenes y las tutorías. Groq recibe
+contexto del catálogo público, sin identidad ni datos académicos de la cuenta.
+Las opciones antiguas de envío de identidad y datos académicos ya no se aplican.
 
-Valores por defecto:
-
-```php
-// config/chatbot.php
-'privacy' => [
-    'send_identity'      => false, // nunca nombre ni carné salvo que se active
-    'send_personal_data' => true,  // notas/exámenes/becas/tutorías SOLO si se piden
-],
-```
-
-- `send_identity = false`: el nombre y el carné **nunca** se transmiten a la IA,
-  porque no son indispensables para responder. Si se necesita depurar, puede
-  activarse temporalmente.
-- `send_personal_data = true`: los datos académicos privados se incluyen
-  **únicamente cuando el mensaje los pide explícitamente** («¿cómo van mis
-  notas?»). No se envían en cada mensaje. Con `false` se omiten siempre.
-
-El horario del estudiante sí se comparte porque es **información de
-demostración** y es necesaria para responder «¿quién es mi profesor de esa
-materia?».
+El texto libre de las consultas que requieren Groq puede llegar al proveedor.
+El servidor omite correos y carnés en los formatos reconocidos por el chat.
 
 ## 4. Memoria conversacional
 
 - Se envía como máximo una **ventana de los últimos intercambios** de la
   **conversación actual** (`chatbot.memory.exchanges`, por defecto 6).
-- La ventana se obtiene de la conversación ya resuelta y protegida: **nunca se
+- Groq recibe esta ventana únicamente en el chat de invitado. Se obtiene de la conversación protegida: **nunca se
   mezclan conversaciones de distintas sesiones ni de distintos usuarios**.
 - Los seguimientos («¿y cuánto cuesta?», «¿esa carrera?», «¿ese profesor?») se
   resuelven preferentemente con **datos estructurados** (tarjetas previas
@@ -84,11 +59,14 @@ materia?».
 
 ## 6. Seguridad del historial
 
-- El historial de una conversación **personal** solo lo puede leer su dueño.
-  Una petición anónima o de otra cuenta recibe `403`.
-- Una petición anónima **nunca** escribe dentro de la conversación de un
-  usuario: usa una conversación de invitado aparte.
-- Un `session_id` ajeno no permite acceder a datos privados.
+- Laravel genera el identificador de cada conversación con 32 bytes aleatorios.
+- El historial y la escritura de invitados exigen la credencial cifrada que
+  recibe el navegador al crear el chat. La credencial viaja en una cabecera.
+- Las conversaciones autenticadas sólo se pueden consultar o modificar desde
+  la cuenta propietaria. Al iniciar sesión se abre un historial separado.
+- Los chats anónimos de versiones anteriores quedan fuera de la interfaz
+  porque carecen de credencial. Las conversaciones de cuentas existentes
+  siguen accesibles para sus propietarios.
 
 ## 7. Aviso de privacidad mostrado en el prototipo
 

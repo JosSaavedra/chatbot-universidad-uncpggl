@@ -5,16 +5,22 @@ import ChatInput from "./chatInput";
 import QuickReplies from "./QuickReplies";
 import PrivacyModal from "./PrivacyModal";
 import escudo from "../../assets/universidad.png.webp";
-import { clearSession } from "../../services/chatService";
+import { deleteHistory } from "../../services/chatService";
 
 function ChatContainer({ onOpenCalendar, onOpenOferta, onOpenCarreras, onOpenPagos, onOpenHorario, onOpenNotas, onLogin, pendingMessage, onPendingConsumed }) {
   const { messages, loading, handleSend, historyLoaded } = useChat();
   const messagesEndRef = useRef(null);
   const messagesContainerRef = useRef(null);
   const chatInputRef = useRef(null);
+  const quickMenuRef = useRef(null);
+  const quickMenuButtonRef = useRef(null);
   const [userScrolledUp, setUserScrolledUp] = useState(false);
-  const [showQuickReplies, setShowQuickReplies] = useState(true);
+  // El menú de información/atajos empieza cerrado para que el chat ocupe
+  // todo el alto disponible; se abre con el botón «+» del campo de escritura.
+  const [quickMenuOpen, setQuickMenuOpen] = useState(false);
   const [showPrivacy, setShowPrivacy] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
   const pendingSentRef = useRef(false);
 
   const handleScroll = () => {
@@ -46,18 +52,49 @@ function ChatContainer({ onOpenCalendar, onOpenOferta, onOpenCarreras, onOpenPag
     setUserScrolledUp(false);
   };
 
-  const handleNewConversation = () => {
-    clearSession();
-    window.location.reload();
+  const handleNewConversation = async () => {
+    setDeleteError("");
+    setDeleting(true);
+    try {
+      await deleteHistory();
+      window.location.reload();
+    } catch (error) {
+      setDeleteError(error.message);
+      setDeleting(false);
+    }
   };
 
+  // Cierra el menú al hacer clic fuera de él o al pulsar Escape.
+  useEffect(() => {
+    if (!quickMenuOpen) return;
+
+    const handlePointerDown = (event) => {
+      if (quickMenuRef.current?.contains(event.target)) return;
+      if (quickMenuButtonRef.current?.contains(event.target)) return;
+      setQuickMenuOpen(false);
+    };
+
+    const handleKeyDown = (event) => {
+      if (event.key !== "Escape") return;
+      setQuickMenuOpen(false);
+      quickMenuButtonRef.current?.focus();
+    };
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [quickMenuOpen]);
+
   const onSend = useCallback(async (text) => {
-    setShowQuickReplies(false);
+    setQuickMenuOpen(false);
     await handleSend(text);
   }, [handleSend]);
 
   const onQuickReply = useCallback(async (text) => {
-    setShowQuickReplies(false);
+    setQuickMenuOpen(false);
     await handleSend(text);
   }, [handleSend]);
 
@@ -79,8 +116,8 @@ function ChatContainer({ onOpenCalendar, onOpenOferta, onOpenCarreras, onOpenPag
     <div className="chat-container">
 
       <div className="new-chat-bar">
-        <button className="new-chat-btn" onClick={handleNewConversation}>
-          Nueva conversación
+        <button className="new-chat-btn" onClick={handleNewConversation} disabled={loading || deleting}>
+          {deleting ? "Borrando…" : "Borrar historial y empezar de nuevo"}
         </button>
       </div>
 
@@ -120,24 +157,36 @@ function ChatContainer({ onOpenCalendar, onOpenOferta, onOpenCarreras, onOpenPag
         <div ref={messagesEndRef}></div>
       </div>
 
-      <QuickReplies
-        onSelect={onQuickReply}
-        onOpenCalendar={onOpenCalendar}
-        onOpenOferta={onOpenOferta}
-        onOpenCarreras={onOpenCarreras}
-        onOpenPagos={onOpenPagos}
-        onOpenHorario={onOpenHorario}
-        onOpenNotas={onOpenNotas}
-        visible={showQuickReplies && !loading}
-      />
-
       {userScrolledUp && (
         <button className="scroll-bottom-btn" onClick={scrollToBottom}>
           ↓
         </button>
       )}
 
-      <ChatInput ref={chatInputRef} onSend={onSend} disabled={loading} />
+      <div className="chat-composer">
+        <div ref={quickMenuRef}>
+          <QuickReplies
+            onSelect={onQuickReply}
+            onOpenCalendar={onOpenCalendar}
+            onOpenOferta={onOpenOferta}
+            onOpenCarreras={onOpenCarreras}
+            onOpenPagos={onOpenPagos}
+            onOpenHorario={onOpenHorario}
+            onOpenNotas={onOpenNotas}
+            visible={quickMenuOpen && !loading}
+          />
+        </div>
+
+        {deleteError && <p role="alert">{deleteError}</p>}
+        <ChatInput
+          ref={chatInputRef}
+          onSend={onSend}
+          disabled={loading || deleting}
+          menuOpen={quickMenuOpen}
+          onToggleMenu={() => setQuickMenuOpen((open) => !open)}
+          menuButtonRef={quickMenuButtonRef}
+        />
+      </div>
 
       <button
         type="button"

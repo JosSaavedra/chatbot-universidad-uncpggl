@@ -54,7 +54,7 @@ class UniversityEventController extends Controller
      */
     public function show($id): JsonResponse
     {
-        $event = UniversityEvent::with('career:id,name,code')->findOrFail($id);
+        $event = UniversityEvent::with('career:id,name,code')->where('is_active', true)->findOrFail($id);
 
         return response()->json($event);
     }

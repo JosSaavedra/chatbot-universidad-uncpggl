@@ -7,8 +7,8 @@
   flex-direction: column;
   gap: 16px;
   background:
-    radial-gradient(circle at 15% 0%, rgba(153, 27, 27, 0.16), transparent 55%),
-    #0f172a;
+    radial-gradient(circle at 15% 0%, var(--theme-radial), transparent 55%),
+    var(--theme-bg);
   animation: fadeInUp 0.3s ease;
 }
 
@@ -26,8 +26,8 @@
 
 .pagos-back-btn {
   background: transparent;
-  border: 1px solid #334155;
-  color: #cbd5e1;
+  border: 1px solid var(--theme-border-strong);
+  color: var(--theme-text-soft);
   border-radius: 999px;
   padding: 8px 16px;
   font-size: 0.82rem;
@@ -36,9 +36,9 @@
 }
 
 .pagos-back-btn:hover {
-  background: #1f2937;
-  border-color: #64748b;
-  color: #f1f5f9;
+  background: var(--theme-surface-2);
+  border-color: var(--theme-faint);
+  color: var(--theme-heading);
 }
 
 /* --- Encabezado + barra de consulta --- */
@@ -47,7 +47,7 @@
   border: 1px solid #7f1d1d;
   border-radius: 18px;
   padding: 22px 20px;
-  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 18px 40px var(--theme-shadow);
 }
 
 .pagos-hero-title {
@@ -132,8 +132,8 @@
   display: flex;
   align-items: center;
   gap: 14px;
-  background: #1a2332;
-  border: 1px solid #263449;
+  background: var(--theme-surface);
+  border: 1px solid var(--theme-border);
   border-radius: 16px;
   padding: 16px 18px;
 }
@@ -156,13 +156,13 @@
 }
 
 .pagos-student-info h3 {
-  color: #f8fafc;
+  color: var(--theme-heading);
   font-size: 1.05rem;
   margin-bottom: 2px;
 }
 
 .pagos-student-info > p {
-  color: #94a3b8;
+  color: var(--theme-muted);
   font-size: 0.85rem;
   margin-bottom: 8px;
 }
@@ -174,9 +174,9 @@
 }
 
 .pagos-chip {
-  background: #0f172a;
-  border: 1px solid #334155;
-  color: #cbd5e1;
+  background: var(--theme-input);
+  border: 1px solid var(--theme-border-strong);
+  color: var(--theme-text-soft);
   border-radius: 999px;
   padding: 3px 10px;
   font-size: 0.72rem;
@@ -197,8 +197,8 @@
 
 .pagos-summary-card {
   position: relative;
-  background: #1a2332;
-  border: 1px solid #263449;
+  background: var(--theme-surface);
+  border: 1px solid var(--theme-border);
   border-left-width: 4px;
   border-radius: 14px;
   padding: 14px 16px;
@@ -216,23 +216,23 @@
 }
 
 .pagos-summary-card.neutral {
-  border-left-color: #64748b;
+  border-left-color: var(--theme-faint);
 }
 
 .pagos-summary-label {
-  color: #94a3b8;
+  color: var(--theme-muted);
   font-size: 0.72rem;
   text-transform: uppercase;
   letter-spacing: 0.08em;
 }
 
 .pagos-summary-value {
-  color: #f8fafc;
+  color: var(--theme-heading);
   font-size: 1.15rem;
 }
 
 .pagos-summary-sub {
-  color: #64748b;
+  color: var(--theme-faint);
   font-size: 0.72rem;
 }
 
@@ -244,9 +244,9 @@
 }
 
 .pagos-filter {
-  background: #1f2937;
-  border: 1px solid #334155;
-  color: #cbd5e1;
+  background: var(--theme-surface-2);
+  border: 1px solid var(--theme-border-strong);
+  color: var(--theme-text-soft);
   border-radius: 999px;
   padding: 7px 14px;
   font-size: 0.78rem;
@@ -255,8 +255,8 @@
 }
 
 .pagos-filter:hover {
-  border-color: #64748b;
-  color: #f1f5f9;
+  border-color: var(--theme-faint);
+  color: var(--theme-heading);
 }
 
 .pagos-filter.active {
@@ -273,11 +273,11 @@
 }
 
 .pagos-empty {
-  color: #94a3b8;
+  color: var(--theme-muted);
   font-size: 0.88rem;
   text-align: center;
   padding: 24px;
-  border: 1px dashed #334155;
+  border: 1px dashed var(--theme-border-strong);
   border-radius: 14px;
 }
 
@@ -287,8 +287,8 @@
   gap: 12px;
   width: 100%;
   text-align: left;
-  background: #1a2332;
-  border: 1px solid #263449;
+  background: var(--theme-surface);
+  border: 1px solid var(--theme-border);
   border-radius: 14px;
   padding: 14px 16px;
   cursor: pointer;
@@ -297,7 +297,7 @@
 }
 
 .pago-card:hover {
-  background: #202b3d;
+  background: var(--theme-hover);
   border-color: #a83232;
   transform: translateY(-1px);
 }
@@ -307,7 +307,7 @@
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  box-shadow: 0 0 0 3px rgba(148, 163, 184, 0.12);
+  box-shadow: 0 0 0 3px var(--theme-chip-border);
 }
 
 .pago-status-dot.pagado {
@@ -331,13 +331,13 @@
 }
 
 .pago-concept {
-  color: #f8fafc;
+  color: var(--theme-heading);
   font-size: 0.92rem;
   font-weight: 600;
 }
 
 .pago-desc {
-  color: #cbd5e1;
+  color: var(--theme-text-soft);
   font-size: 0.82rem;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -345,7 +345,7 @@
 }
 
 .pago-meta {
-  color: #64748b;
+  color: var(--theme-faint);
   font-size: 0.72rem;
 }
 
@@ -358,7 +358,7 @@
 }
 
 .pago-amount {
-  color: #f8fafc;
+  color: var(--theme-heading);
   font-size: 0.95rem;
   font-weight: 700;
 }
@@ -381,28 +381,28 @@
 }
 
 .pago-badge.pagado {
-  background: rgba(34, 197, 94, 0.14);
-  color: #86efac;
-  border-color: rgba(34, 197, 94, 0.4);
+  background: var(--theme-success-bg);
+  color: var(--theme-success-text);
+  border-color: var(--theme-success-border);
 }
 
 .pago-badge.pendiente {
-  background: rgba(245, 158, 11, 0.14);
-  color: #fcd34d;
-  border-color: rgba(245, 158, 11, 0.4);
+  background: var(--theme-warning-bg);
+  color: var(--theme-warning-text);
+  border-color: var(--theme-warning-border);
 }
 
 .pago-badge.vencido {
-  background: rgba(239, 68, 68, 0.16);
-  color: #fca5a5;
-  border-color: rgba(239, 68, 68, 0.45);
+  background: var(--theme-danger-bg);
+  color: var(--theme-accent-soft);
+  border-color: var(--theme-danger-border);
 }
 
 /* --- Modal de recibo --- */
 .pago-modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(2, 6, 23, 0.45);
+  background: var(--theme-overlay-soft);
   display: grid;
   place-items: center;
   padding: 16px;
@@ -415,10 +415,10 @@
   max-width: 460px;
   max-height: 88vh;
   overflow-y: auto;
-  background: #111827;
-  border: 1px solid #263449;
+  background: var(--theme-card);
+  border: 1px solid var(--theme-border);
   border-radius: 18px;
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 24px 60px var(--theme-shadow-strong);
   animation: fadeInUp 0.25s ease;
 }
 
@@ -427,7 +427,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 16px 18px;
-  border-bottom: 1px solid #263449;
+  border-bottom: 1px solid var(--theme-border);
   background: linear-gradient(135deg, #991b1b, #450a0a);
   border-radius: 17px 17px 0 0;
 }
@@ -462,17 +462,17 @@
   gap: 2px;
   padding-bottom: 14px;
   margin-bottom: 14px;
-  border-bottom: 1px dashed #334155;
+  border-bottom: 1px dashed var(--theme-border-strong);
 }
 
 .pago-modal-brand strong {
-  color: #f8fafc;
+  color: var(--theme-heading);
   letter-spacing: 0.12em;
   font-size: 0.9rem;
 }
 
 .pago-modal-brand span {
-  color: #94a3b8;
+  color: var(--theme-muted);
   font-size: 0.72rem;
 }
 
@@ -489,7 +489,7 @@
 }
 
 .pago-modal-fields dt {
-  color: #64748b;
+  color: var(--theme-faint);
   font-size: 0.68rem;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -497,7 +497,7 @@
 }
 
 .pago-modal-fields dd {
-  color: #e2e8f0;
+  color: var(--theme-text);
   font-size: 0.85rem;
   margin: 0;
 }
@@ -509,17 +509,17 @@
   margin-top: 16px;
   padding: 14px 16px;
   border-radius: 12px;
-  background: #1a2332;
-  border: 1px solid #263449;
+  background: var(--theme-surface);
+  border: 1px solid var(--theme-border);
 }
 
 .pago-modal-total span {
-  color: #94a3b8;
+  color: var(--theme-muted);
   font-size: 0.8rem;
 }
 
 .pago-modal-total strong {
-  color: #f8fafc;
+  color: var(--theme-heading);
   font-size: 1.2rem;
 }
 
@@ -541,4 +541,14 @@
     opacity: 1;
     transform: translateY(0);
   }
+}
+.pago-print-btn {
+  background: var(--theme-red);
+  color: white;
+  font: inherit;
+  border: none;
+  border-radius: 8px;
+  margin-top: 12px;
+  padding: 10px 16px;
+  cursor: pointer;
 }

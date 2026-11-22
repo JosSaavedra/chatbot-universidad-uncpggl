@@ -1,6 +1,8 @@
 import { lazy, Suspense, useState } from "react";
 import ChatContainer from "./components/chat/chatContainer";
 import { useAuth } from "./hooks/useAuth";
+import { sessionScope } from "./services/authService";
+import { useTheme } from "./hooks/useTheme";
 import escudo from "./assets/universidad.png.webp";
 import "./App.css";
 
@@ -13,6 +15,40 @@ const PagosView = lazy(() => import("./components/pagos/PagosView"));
 const HorarioView = lazy(() => import("./components/horario/HorarioView"));
 const GradesView = lazy(() => import("./components/notas/GradesView"));
 const LoginModal = lazy(() => import("./components/auth/LoginModal"));
+
+function ThemeIcon({ theme }) {
+  if (theme === "dark") {
+    return (
+      <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        aria-hidden="true"
+        focusable="false"
+      >
+        <circle cx="12" cy="12" r="4" />
+        <path d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.66 6.34l1.41-1.41" />
+      </svg>
+    );
+  }
+
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+    </svg>
+  );
+}
 
 const TITLES = {
   chat: "Asistente Académico IA",
@@ -33,7 +69,8 @@ function App() {
   const [showLogin, setShowLogin] = useState(false);
   const [afterLoginView, setAfterLoginView] = useState(null);
 
-  const { isAuthed, student, logout } = useAuth();
+  const { isAuthed, student, logout, token } = useAuth();
+  const { theme, toggleTheme } = useTheme();
 
   const openOferta = (tab) => {
     setOfertaTab(tab === "sede" ? "sede" : "facultad");
@@ -77,7 +114,7 @@ function App() {
 
   return (
     <div className="app">
-      <div className="chat-card">
+      <div className="chat-card" key={sessionScope(token)}>
 
         <div className="chat-header">
           <img src={escudo} alt="Escudo" className="logo" />
@@ -87,6 +124,19 @@ function App() {
           </div>
 
           <div className="header-auth">
+            <button
+              type="button"
+              className="theme-toggle"
+              onClick={toggleTheme}
+              aria-label={theme === "dark" ? "Cambiar al modo claro" : "Cambiar al modo noche"}
+              title={theme === "dark" ? "Cambiar al modo claro" : "Cambiar al modo noche"}
+            >
+              <ThemeIcon theme={theme} />
+              <span className="theme-toggle-label">
+                {theme === "dark" ? "Cambiar a claro" : "Cambiar a oscuro"}
+              </span>
+            </button>
+
             {isAuthed ? (
               <>
                 <span className="header-auth-chip" title="Sesión activa">
@@ -94,7 +144,7 @@ function App() {
                 </span>
                 <button
                   className="header-auth-btn"
-                  onClick={() => logout()}
+                onClick={() => logout().catch((error) => window.alert(error.message))}
                 >
                   Salir
                 </button>
@@ -166,7 +216,7 @@ function App() {
             <LoginModal
               onClose={() => setShowLogin(false)}
               onSuccess={() => {
-                if (afterLoginView) setView(afterLoginView);
+                setView(afterLoginView || "chat");
               }}
             />
           )}

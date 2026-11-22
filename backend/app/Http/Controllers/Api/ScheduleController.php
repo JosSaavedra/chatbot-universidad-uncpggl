@@ -8,6 +8,7 @@ use App\Models\Student;
 use App\Services\ScheduleService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Gate;
 
 class ScheduleController extends Controller
 {
@@ -15,7 +16,11 @@ class ScheduleController extends Controller
 
     public function index(Request $request): JsonResponse
     {
-        $query = Schedule::with(['career', 'teacher', 'sede']);
+        // Los bloques de horario no contienen datos personales del estudiante:
+        // su consulta está disponible para cualquier usuario autenticado.
+        Gate::authorize('viewAny', Schedule::class);
+
+        $query = Schedule::with(['career', 'teacher:id,full_name', 'sede']);
 
         if ($request->filled('career_id')) {
             $query->where('career_id', $request->input('career_id'));
@@ -66,7 +71,12 @@ class ScheduleController extends Controller
      */
     public function mySchedule(Request $request): JsonResponse
     {
-        $student = Student::where('user_id', $request->user()->id)->first();
+        // La identidad se toma EXCLUSIVAMENTE del token de Sanctum: no se
+        // acepta ningún `user_id` ni carné enviado por el cliente.
+        $user = $request->user();
+        abort_if($user === null, 401);
+
+        $student = Student::where('user_id', $user->id)->first();
 
         if (! $student) {
             return response()->json([
@@ -79,6 +89,9 @@ class ScheduleController extends Controller
 
     public function store(Request $request): JsonResponse
     {
+        // Alta de bloques de horario: exclusiva de administradores.
+        Gate::authorize('create', Schedule::class);
+
         $validated = $request->validate([
             'career_id' => 'required|exists:careers,id',
             'subject_name' => 'required|string|max:255',
@@ -96,11 +109,17 @@ class ScheduleController extends Controller
 
     public function show(Schedule $schedule): JsonResponse
     {
-        return response()->json(['data' => $schedule->load(['career', 'teacher', 'sede'])], 200);
+        // Bloque de horario: visible para cualquier usuario autenticado.
+        Gate::authorize('view', $schedule);
+
+        return response()->json(['data' => $schedule->load(['career', 'teacher:id,full_name', 'sede'])], 200);
     }
 
     public function update(Request $request, Schedule $schedule): JsonResponse
     {
+        // Modificar horarios administrativos: exclusivo de administradores.
+        Gate::authorize('update', $schedule);
+
         $validated = $request->validate([
             'subject_name' => 'string|max:255',
             'day_of_week' => 'in:Monday,Tuesday,Wednesday,Thursday,Friday,Saturday,Sunday,Lunes,Martes,Miércoles,Jueves,Viernes,Sábado,Domingo',
@@ -117,6 +136,9 @@ class ScheduleController extends Controller
 
     public function destroy(Schedule $schedule): JsonResponse
     {
+        // Borrado de bloques de horario: exclusivo de administradores.
+        Gate::authorize('delete', $schedule);
+
         $schedule->delete();
         return response()->json(['message' => 'Bloque de horario eliminado'], 200);
     }

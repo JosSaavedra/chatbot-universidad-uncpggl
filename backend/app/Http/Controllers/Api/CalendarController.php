@@ -24,6 +24,15 @@ class CalendarController extends Controller
      * Devuelve en una sola respuesta los feriados de Nicaragua y los eventos
      * universitarios registrados en la base de datos dentro del rango pedido.
      */
+    private function validateRange(Carbon $start, Carbon $end): void
+    {
+        if (!HolidayService::supportsRange($start, $end)) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'end' => ['Selecciona un intervalo de hasta 366 días entre los años 2000 y 2100.'],
+            ]);
+        }
+    }
+
     public function index(Request $request): JsonResponse
     {
         $data = $request->validate([
@@ -35,6 +44,7 @@ class CalendarController extends Controller
 
         $start = Carbon::parse($data['start'], self::TIMEZONE)->startOfDay();
         $end   = Carbon::parse($data['end'], self::TIMEZONE)->endOfDay();
+        $this->validateRange($start, $end);
 
         return response()->json([
             'range'    => [
@@ -54,7 +64,7 @@ class CalendarController extends Controller
     public function holidays(Request $request): JsonResponse
     {
         if ($request->filled('year')) {
-            $year  = (int) $request->input('year');
+            $year = (int) $request->validate(['year' => 'required|integer|between:2000,2100'])['year'];
             $start = Carbon::create($year, 1, 1, 0, 0, 0, self::TIMEZONE)->startOfDay();
             $end   = Carbon::create($year, 12, 31, 23, 59, 59, self::TIMEZONE)->endOfDay();
         } else {
@@ -65,6 +75,8 @@ class CalendarController extends Controller
             $start = Carbon::parse($data['start'], self::TIMEZONE)->startOfDay();
             $end   = Carbon::parse($data['end'], self::TIMEZONE)->endOfDay();
         }
+
+        $this->validateRange($start, $end);
 
         return response()->json([
             'holidays' => $this->getHolidays($start, $end),

@@ -244,7 +244,7 @@ class ChatbotMemoryTest extends TestCase
         $this->postJson('/api/chat', [
             'message'    => '¿Cuánto cuesta?',
             'session_id' => 'sess_mine',
-        ])->assertOk();
+        ], $this->guestChatHeaders('sess_mine'))->assertOk();
 
         Http::assertSent(function ($request) {
             $turns = collect($request['messages'] ?? [])
@@ -252,8 +252,8 @@ class ChatbotMemoryTest extends TestCase
                 ->pluck('content')
                 ->implode("\n");
 
-            // Incluye la conversación actual...
-            return str_contains($turns, 'Hola, buenas tardes')
+            // El contexto conversacional se mantiene dentro de Laravel.
+            return !str_contains($turns, 'Hola, buenas tardes')
                 && str_contains($turns, '¿Cuánto cuesta?')
                 // ...pero nunca contenido de la conversación ajena.
                 && ! str_contains($turns, 'Medicina');
@@ -284,7 +284,7 @@ class ChatbotMemoryTest extends TestCase
         $this->postJson('/api/chat', [
             'message'    => '¿Y cuánto dura esa carrera?',
             'session_id' => 'sess_follow',
-        ])
+        ], $this->guestChatHeaders('sess_follow'))
             ->assertOk()
             ->assertJsonPath('data.type', 'careers')
             ->assertJsonPath('data.careers.0.id', $med->id);

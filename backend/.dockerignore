@@ -1,7 +1,8 @@
 # Secretos: nunca copiar el .env real a la imagen
 .env
 .env.*
-!.env.example
+**/.env
+**/.env.*
 
 # Dependencias (se instalan dentro del contenedor)
 vendor
@@ -13,5 +14,15 @@ node_modules
 .vercel
 
 # Temporales y backups
+database/*.sqlite*
+bootstrap/cache/config.php
 storage/logs/*
 Dockerfile.bak
+tests
+phpunit.xml
+.phpunit.cache
+.phpunit.result.cache
+storage/framework/*
+storage/database/
+storage/app/private/
+bootstrap/cache/*.php

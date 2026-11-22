@@ -5,8 +5,7 @@ namespace App\Services;
 use App\Models\Career;
 use App\Models\Schedule;
 use App\Models\Scholarship;
-use App\Models\Grade;
-use App\Models\User;
+use App\Models\Message;
 use App\Models\Student;
 use App\Models\Exam;
 use App\Models\Tutoring;
@@ -41,9 +40,19 @@ class ChatbotService
         // PRIORIDAD 0: si el usuario escribe su carné, se responde con un saludo
         // generado por Laravel (nombre desde la base de datos). No se consulta a
         // la IA y no se muestran carreras, precios, horarios ni pagos.
-        $carnet = $this->carnetReply($message);
+        $carnet = $this->carnetReply($message, $userId);
         if ($carnet !== null) {
             return $carnet;
+        }
+        if (preg_match_all(self::CARNET_PATTERN, $message, $mentions, PREG_SET_ORDER)) {
+            $ownCarnet = $userId === null ? null : Student::where('user_id', $userId)->value('student_code');
+            foreach ($mentions as $mention) {
+                $code = $mention[1].'-'.$mention[2].'-'.$mention[3];
+                if ($ownCarnet === null || strcasecmp($ownCarnet, $code) !== 0) {
+                    return ['intent' => 'carnet_not_found', 'count' => 0,
+                        'text' => 'Solo puedes consultar información personal de tu propia cuenta con una sesión válida.'];
+                }
+            }
         }
 
         // PRIORIDAD 1: consultas de calificaciones personales. Se responden de
@@ -53,24 +62,30 @@ class ChatbotService
             return $this->gradesReply($userId);
         }
 
-        $context = $this->buildContext($message, $userId);
+        if ($this->wantsPayments($message)) {
+            return ['intent' => 'fallback_payments', 'count' => 0, 'text' => $userId === null
+                ? 'Inicia sesión para consultar tus pagos y recibos en «Pagos del estudiante».'
+                : 'Consulta tus pagos y recibos en el módulo «Pagos del estudiante».'];
+        }
+
+        $personal = $this->personalReply($message, $userId, $history);
+        if ($personal !== null) {
+            return $personal;
+        }
+
+        $context = $this->buildContext($message);
         $system  = $this->systemPrompt($context);
 
         $apiKey = trim((string) config('services.groq.key', ''));
 
         if ($apiKey === '') {
-            \Log::warning('ChatbotService: GROQ_API_KEY/OPENAI_API_KEY no configurada. Se usa fallback local.');
+            \Log::warning('ChatbotService: GROQ_API_KEY no configurada. Se usa fallback local.');
             return $this->fallback($message);
         }
 
-        // Se envía una ventana LIMITADA de la conversación actual para que la IA
-        // entienda seguimientos ("¿y cuánto cuesta?"), sin exponer historial de
-        // otras sesiones ni datos de otros estudiantes.
+        // La memoria se usa en Laravel para sugerencias y consultas locales.
         $messages = [['role' => 'system', 'content' => $system]];
-        foreach ($this->memoryWindow($history) as $turn) {
-            $messages[] = $turn;
-        }
-        $messages[] = ['role' => 'user', 'content' => $message];
+        $messages[] = ['role' => 'user', 'content' => $this->redactIdentifiers($message)];
 
         try {
             $res = Http::withToken($apiKey)
@@ -90,13 +105,67 @@ class ChatbotService
                 return ['intent' => 'groq', 'count' => 1, 'text' => $this->sanitizeModelText($text)];
             }
 
-            \Log::error('Groq API error: ' . $res->status() . ' - ' . $res->body());
-        } catch (\Throwable $e) {
-            \Log::error('Groq API exception: ' . $e->getMessage());
+            \Log::error('Groq API error', ['status' => $res->status()]);
+        } catch (\Throwable) {
+            \Log::error('Groq API request failed.');
         }
 
         // Pase lo que pase, el usuario recibe una respuesta útil y nunca un error crudo.
         return $this->fallback($message);
+    }
+
+    private function redactIdentifiers(string $text): string
+    {
+        $text = (string) preg_replace(self::CARNET_PATTERN, '[carné omitido]', $text);
+
+        $text = (string) preg_replace('/[\w.%+\-]+@[\w.\-]+\.[a-z]{2,}/iu', '[correo omitido]', $text);
+        $text = (string) preg_replace('/(?<!\w)\+?\d(?:[ .()\-]*\d){6,}(?!\w)/u', '[número omitido]', $text);
+
+        return (string) preg_replace(
+            '/\b(?:me llamo|mi nombre es|mi (?:dirección|contraseña|teléfono) es)\b[^.!?;\n]*/iu',
+            '[dato personal omitido]',
+            $text
+        );
+    }
+
+    private function personalReply(string $message, ?int $userId, array $history): ?array
+    {
+        $normalized = $this->normalize($message);
+        if ($userId !== null && ($this->wantsScheduleIntent($message) || $this->isScheduleFollowUp($normalized, $history))) {
+            return ['intent' => 'schedule_module', 'count' => 0,
+                'text' => 'Puedes consultar tu horario en la tarjeta y abrir el módulo para ver la semana completa.'];
+        }
+
+        $topics = array_filter(['exams', 'scholarships', 'tutorings'],
+            fn (string $topic): bool => $this->wantsPersonalTopic($normalized, $topic));
+        if ($topics === []) {
+            return null;
+        }
+
+        $personal = preg_match('/\b(mi|mis|me|tengo|agendad\w*|programad\w*|proxim\w*)\b/', $normalized)
+            || preg_match(self::CARNET_PATTERN, $message);
+        if (! $personal) {
+            return null;
+        }
+
+        $student = $userId === null ? null : Student::where('user_id', $userId)->first();
+        if ($student === null) {
+            return ['intent' => 'fallback_auth_required', 'count' => 0,
+                'text' => 'Inicia sesión para consultar tus exámenes, becas o tutorías.'];
+        }
+
+        $text = '';
+        foreach ($topics as $topic) {
+            match ($topic) {
+                'exams' => $this->addExams($text, $student),
+                'scholarships' => $this->addScholarships($text, $userId),
+                'tutorings' => $this->addTutorings($text, $userId),
+            };
+        }
+
+        return ['intent' => 'personal_records', 'count' => 0, 'text' => $text === ''
+            ? 'Tu cuenta no tiene registros vigentes para esa consulta.'
+            : "Registros de tu cuenta:\n\n".trim($text)];
     }
 
     /**
@@ -351,8 +420,7 @@ class ChatbotService
 
     /**
      * Palabras (normalizadas) que indican que la consulta pide datos académicos
-     * PERSONALES. Solo entonces se incluyen en el contexto de la IA: no se
-     * transmiten en cada mensaje.
+     * PERSONALES que se pueden resolver localmente.
      *
      * @var array<string, array<int, string>>
      */
@@ -434,7 +502,7 @@ class ChatbotService
      *
      * @return array<string, mixed>|null
      */
-    public function carnetReply(string $message): ?array
+    public function carnetReply(string $message, ?int $userId = null): ?array
     {
         if (! preg_match(self::CARNET_PATTERN, $message, $m)) {
             return null;
@@ -446,7 +514,15 @@ class ChatbotService
 
         $carnet = $m[1] . '-' . mb_strtoupper($m[2]) . '-' . $m[3];
 
-        return $this->greetingForCarnet($carnet);
+        $student = $userId === null ? null : Student::with('user')
+            ->where('user_id', $userId)
+            ->whereRaw('LOWER(student_code) = ?', [mb_strtolower($carnet)])
+            ->first();
+        if ($student === null) {
+            return ['intent' => 'carnet_not_found', 'count' => 0,
+                'text' => 'Para consultar tu información personal, inicia sesión con tu cuenta.'];
+        }
+        return $this->greetingForStudent($student);
     }
 
     /**
@@ -470,21 +546,15 @@ class ChatbotService
     }
 
     /**
-     * Saludo personalizado por carné. Un carné por sí solo NO autentica: solo
-     * se saluda con el nombre y NUNCA se emiten tokens ni se devuelven datos
-     * personales (notas, pagos, becas, horarios privados).
+     * Saludo para el estudiante autenticado que presentó su propio carné.
      *
      * @return array<string, mixed>
      */
-    private function greetingForCarnet(string $carnet): array
+    private function greetingForStudent(Student $student): array
     {
-        $student = Student::with('user')
-            ->whereRaw('LOWER(student_code) = ?', [mb_strtolower($carnet)])
-            ->first();
+        $name = trim((string) ($student->user?->name ?? ''));
 
-        $name = trim((string) ($student?->user?->name ?? ''));
-
-        if ($student === null || $name === '') {
+        if ($name === '') {
             return [
                 'intent' => 'carnet_not_found',
                 'count'  => 0,
@@ -515,65 +585,6 @@ class ChatbotService
         return Career::where('is_active', true)
             ->whereRaw('LOWER(code) = ?', [$mm[1]])
             ->first();
-    }
-
-    /**
-     * Recorta la conversación a una ventana limitada y normalizada para la IA.
-     *
-     * - Solo incluye la conversación actual (responsabilidad del llamador).
-     * - Limita a `chatbot.memory.exchanges` intercambios (configurable).
-     * - Une mensajes consecutivos del mismo rol (la API espera alternancia).
-     *
-     * @param  array<int, array<string, mixed>>  $history
-     * @return array<int, array{role:string, content:string}>
-     */
-    private function memoryWindow(array $history): array
-    {
-        $maxTurns = max(2, (int) config('chatbot.memory.exchanges', 6)) * 2;
-
-        $clean = [];
-        foreach ($history as $entry) {
-            $content = trim((string) ($entry['content'] ?? ''));
-            // La identidad del estudiante (nombre del saludo por carné) no debe
-            // viajar al proveedor de IA dentro de la ventana de memoria.
-            $content = $this->redactIdentity($content);
-            if ($content === '') {
-                continue;
-            }
-
-            $role = mb_strtolower((string) ($entry['role'] ?? 'user'));
-            $role = in_array($role, ['bot', 'assistant'], true) ? 'assistant' : 'user';
-
-            $clean[] = ['role' => $role, 'content' => mb_substr($content, 0, 1000)];
-        }
-
-        $clean = array_slice($clean, -$maxTurns);
-
-        $window = [];
-        foreach ($clean as $turn) {
-            if ($window !== [] && $window[count($window) - 1]['role'] === $turn['role']) {
-                $window[count($window) - 1]['content'] .= "\n" . $turn['content'];
-                continue;
-            }
-            $window[] = $turn;
-        }
-
-        return $window;
-    }
-
-    /**
-     * Neutraliza el nombre del estudiante en el saludo personalizado por carné
-     * antes de enviarlo a la IA, en línea con la política de no transmitir
-     * identidad por defecto. Solo afecta al saludo que genera Laravel; el resto
-     * del contenido de la conversación se conserva intacto.
-     */
-    private function redactIdentity(string $content): string
-    {
-        return (string) preg_replace(
-            '/¡Hola,[^\n]*!\s*👋\s*\n\s*\nSoy el Asistente Académico/u',
-            "¡Hola! 👋\n\nSoy el Asistente Académico",
-            $content
-        );
     }
 
     /**
@@ -1593,7 +1604,7 @@ class ChatbotService
         return $system;
     }
 
-    private function buildContext(string $message, ?int $userId = null): string
+    private function buildContext(string $message): string
     {
         $ctx = '';
         $msgLower = mb_strtolower($message);
@@ -1621,60 +1632,10 @@ class ChatbotService
         $this->addAcademicCalendar($ctx, $msgLower);
         $this->addUniversityEvents($ctx, $msgLower);
         $this->addHolidays($ctx, $msgLower);
-        // Los horarios generales por carrera son para visitantes; el estudiante
-        // autenticado recibe su horario personalizado más abajo (addSchedule).
-        if (! $userId) {
-            $this->addGeneralSchedules($ctx, $msgLower);
-        }
+        $this->addGeneralSchedules($ctx, $msgLower);
         $this->addOfficeHours($ctx, $msgLower);
         $this->addSedes($ctx, $msgLower);
         $this->addAdmission($ctx, $msgLower);
-
-        if ($userId) {
-            $student = Student::where('user_id', $userId)->first();
-            if ($student) {
-                $career = Career::find($student->career_id);
-
-                // PRIVACIDAD: nunca se envían nombre ni carné a la IA (no son
-                // indispensables para responder). Solo se comparte la carrera y
-                // el año, necesarios para el horario/materias del estudiante.
-                if (config('chatbot.privacy.send_identity', false)) {
-                    $user = User::find($userId);
-                    $ctx .= "ESTUDIANTE AUTENTICADO: " . ($user?->name ?? 'N/D') . " | Carné: {$student->student_code} | Carrera: " . ($career?->name ?? 'N/D') . " | Año: {$student->year_of_study}\n\n";
-                } else {
-                    $ctx .= "ESTUDIANTE AUTENTICADO (identidad omitida por privacidad): Carrera: " . ($career?->name ?? 'N/D') . " | Año: {$student->year_of_study}\n\n";
-                }
-
-                // Datos académicos privados: solo si están permitidos Y la
-                // consulta los pide explícitamente (filtrado por intención).
-                if (config('chatbot.privacy.send_personal_data', true)) {
-                    if ($this->wantsPersonalTopic($msgLower, 'grades')) {
-                        $this->addGrades($ctx, $userId);
-                    }
-                    if ($this->wantsPersonalTopic($msgLower, 'exams')) {
-                        $this->addExams($ctx, $student);
-                    }
-                    if ($this->wantsPersonalTopic($msgLower, 'scholarships')) {
-                        $this->addScholarships($ctx, $userId);
-                    }
-                    if ($this->wantsPersonalTopic($msgLower, 'tutorings')) {
-                        $this->addTutorings($ctx, $userId);
-                    }
-                    // Recordatorios: redundantes con exámenes/tutorías; solo si
-                    // la consulta pide alguno de esos temas.
-                    if ($this->wantsPersonalTopic($msgLower, 'exams')
-                        || $this->wantsPersonalTopic($msgLower, 'tutorings')) {
-                        $this->addReminders($ctx, $student);
-                    }
-                }
-
-                // El horario del estudiante sí se comparte: es dato de
-                // demostración y hace falta para "¿quién es mi profesor de…?".
-                $this->addSchedule($ctx, $student);
-            }
-        } else {
-            $ctx .= "NOTA: Usuario no autenticado. Solo puede consultar información pública (carreras, costos, horarios generales, calendario y eventos). NO tienes acceso a datos personales de ningún estudiante.\n";
-        }
 
         return $ctx;
     }
@@ -1728,62 +1689,6 @@ class ChatbotService
             'count'  => 0,
             'text'   => "Para consultar tus calificaciones necesitas iniciar sesión en el sistema con tu carné. Así solo podrás ver tus propios datos.\n\nPuedes hacerlo desde el módulo «Mis notas».",
         ];
-    }
-
-    private function addGrades(string &$ctx, int $userId): void
-    {
-        $grades = Grade::where('user_id', $userId)->get();
-        if ($grades->isEmpty()) return;
-
-        $ctx .= "NOTAS DEL PERÍODO {$grades->first()->period}:\n";
-        $reprobadas = [];
-        foreach ($grades as $g) {
-            $status = match($g->status) {
-                'approved' => '✅ APROBADO',
-                'failed'   => '❌ REPROBADO',
-                default    => '⏳ EN CURSO',
-            };
-            $ctx .= "- {$g->subject_name}: I Parcial={$g->first_partial} | II Parcial={$g->second_partial} | Final={$g->final_exam} | Nota Final={$g->final_grade} | {$status}\n";
-            if ($g->status === 'failed') $reprobadas[] = $g->subject_name;
-        }
-        if (!empty($reprobadas)) {
-            $ctx .= "⚠️ MATERIAS REPROBADAS (debe reinscribir): " . implode(', ', $reprobadas) . "\n";
-        }
-        $ctx .= "\n";
-    }
-
-    private function addSchedule(string &$ctx, Student $student): void
-    {
-        $schedules = Schedule::with(['teacher', 'sede'])
-            ->where('career_id', $student->career_id)
-            ->where('year_of_study', $student->year_of_study)
-            ->when($student->group_code, fn ($q) => $q->where('group_code', $student->group_code))
-            ->orderBy('day_of_week')
-            ->orderBy('start_time')
-            ->get();
-
-        if ($schedules->isEmpty()) return;
-
-        $dayOrder = ['Lunes' => 1, 'Martes' => 2, 'Miércoles' => 3, 'Jueves' => 4, 'Viernes' => 5, 'Sábado' => 6, 'Domingo' => 7];
-        $grouped = $schedules->groupBy(fn($s) => $s->day_of_week)
-            ->sortBy(fn($items, $day) => $dayOrder[$day] ?? 99);
-
-        $ctx .= "📅 HORARIO DE CLASES DEL ESTUDIANTE (año {$student->year_of_study}"
-            . ($student->group_code ? ", grupo {$student->group_code}" : '') . "):\n";
-        foreach ($grouped as $day => $daySchedules) {
-            $ctx .= "\n📌 {$day}:\n";
-            foreach ($daySchedules->sortBy('start_time') as $s) {
-                $start = substr((string) $s->start_time, 0, 5);
-                $end   = substr((string) $s->end_time, 0, 5);
-                $teacher = $s->teacher_display_name ?: 'por asignar';
-                $room    = $s->classroom ?: 'por asignar';
-                $building = $s->building ? ", {$s->building}" : '';
-                $sede    = $s->sede?->name ? ", {$s->sede->name}" : '';
-                $ctx .= "   🕐 {$start} - {$end} | {$s->subject_name}\n";
-                $ctx .= "      📍 Aula: {$room}{$building}{$sede} | 👨‍🏫 Docente: {$teacher}\n";
-            }
-        }
-        $ctx .= "\n";
     }
 
     private function addExams(string &$ctx, Student $student): void
@@ -2073,7 +1978,7 @@ class ChatbotService
         if (!$hasKeyword) return;
 
         $now = Carbon::now('America/Managua');
-        $holidays = $this->holidays->getHolidays($now->copy()->startOfYear(), $now->copy()->addYear());
+        $holidays = $this->holidays->getHolidaysForCurrentAndNextYear($now);
 
         if (empty($holidays)) return;
 
@@ -2096,48 +2001,6 @@ class ChatbotService
         if ($days < 0) return 'ya pasó (hace ' . abs($days) . ' días)';
 
         return "en {$days} días";
-    }
-
-    private function addReminders(string &$ctx, Student $student): void
-    {
-        $now = Carbon::now();
-        $exams = Exam::where('career_id', $student->career_id)
-            ->where('year_of_study', $student->year_of_study)
-            ->where('scheduled_at', '>=', $now)
-            ->where('scheduled_at', '<=', $now->copy()->addDays(7))
-            ->orderBy('scheduled_at')
-            ->get();
-
-        if ($exams->isNotEmpty()) {
-            $ctx .= "⚠️ RECORDATORIO: Tienes exámenes esta semana:\n";
-            foreach ($exams as $e) {
-                $date = Carbon::parse($e->scheduled_at);
-                $days = (int) $now->diffInDays($date, false);
-                if ($days < 0) $days = abs($days);
-                $daysText = $days == 0 ? 'HOY' : ($days == 1 ? 'MAÑANA' : "en {$days} días");
-                $ctx .= "  📝 {$e->subject_name} ({$e->exam_type}) - {$date->format('d/m')} {$daysText}\n";
-            }
-            $ctx .= "\n";
-        }
-
-        $tutorings = Tutoring::where('user_id', $student->user_id)
-            ->where('status', 'scheduled')
-            ->where('scheduled_at', '>=', $now)
-            ->where('scheduled_at', '<=', $now->copy()->addDays(3))
-            ->orderBy('scheduled_at')
-            ->get();
-
-        if ($tutorings->isNotEmpty()) {
-            $ctx .= "⚠️ RECORDATORIO: Tienes tutorías próximas:\n";
-            foreach ($tutorings as $t) {
-                $date = Carbon::parse($t->scheduled_at);
-                $days = (int) $now->diffInDays($date, false);
-                if ($days < 0) $days = abs($days);
-                $daysText = $days == 0 ? 'HOY' : ($days == 1 ? 'MAÑANA' : "en {$days} días");
-                $ctx .= "  👨‍🏫 {$t->subject_name} con {$t->tutor_name} - {$date->format('d/m')} {$daysText}\n";
-            }
-            $ctx .= "\n";
-        }
     }
 
     /**
@@ -2205,10 +2068,7 @@ class ChatbotService
         // Incluimos el año actual y el siguiente completos para poder responder
         // también consultas sobre una fecha concreta.
         $now = Carbon::now('America/Managua');
-        $holidays = $this->holidays->getHolidays(
-            $now->copy()->startOfYear(),
-            $now->copy()->addYear()->endOfYear()
-        );
+        $holidays = $this->holidays->getHolidaysForCurrentAndNextYear($now);
 
         if (!empty($holidays)) {
             $ctx .= "  ⚠️ IMPORTANTE: en los días feriados nacionales NO hay atención al público. Si preguntan por una fecha que aparece en esta lista, aclara que ese día no se atiende.\n";
@@ -2338,7 +2198,7 @@ class ChatbotService
         $msg = mb_strtolower($message);
 
         // Pagos/recibos personales.
-        $paymentsText = "Puedes consultar tus pagos, la inscripción y las mensualidades en el módulo \"Pagos del estudiante\". Haz clic en el botón de abajo e ingresa el código de tu carné para ver tu estado de cuenta.";
+        $paymentsText = 'Para ver tu estado de cuenta, inicia sesión y abre «Pagos del estudiante».';
         if ($this->wantsPayments($message)) {
             return ['intent' => 'fallback_payments', 'count' => 0, 'text' => $paymentsText];
         }
@@ -2428,7 +2288,7 @@ class ChatbotService
                 ->implode("\n");
 
             $now = Carbon::now('America/Managua');
-            $holidays = $this->holidays->getHolidays($now->copy()->startOfDay(), $now->copy()->addMonths(12));
+            $holidays = $this->holidays->getHolidays($now->copy()->startOfDay(), $now->copy()->addDays(365)->endOfDay());
             $holidayNote = '';
             if (!empty($holidays)) {
                 $upcoming = array_slice($holidays, 0, 10);

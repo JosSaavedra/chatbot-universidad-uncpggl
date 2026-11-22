@@ -1,3 +1,6 @@
+# Render Blueprint del backend.
+# Configura las variables con sync: false en el Dashboard. SQLite en el
+# plan free se escribe en el filesystem efímero del contenedor.
 services:
   - type: web
     name: chatbot-uncpggl-api
@@ -7,6 +10,7 @@ services:
     dockerfilePath: ./backend/Dockerfile
     dockerContext: ./backend
     healthCheckPath: /up
+    autoDeployTrigger: "off"
     envVars:
       - key: APP_ENV
         value: production
@@ -15,14 +19,86 @@ services:
       - key: APP_URL
         value: https://chatbot-uncpggl-api.onrender.com
       - key: APP_KEY
-        generateValue: true
+        sync: false
       - key: LOG_CHANNEL
         value: stderr
+      - key: LOG_LEVEL
+        value: warning
       - key: PHP_CLI_SERVER_WORKERS
         value: "4"
+
       - key: FRONTEND_URL
         value: https://chatbot-universidad.vercel.app
       - key: CORS_ALLOWED_ORIGINS
         value: https://chatbot-universidad.vercel.app
-      - key: OPENAI_API_KEY
+
+      - key: STUDENT_ACCESS_MODE
+        value: institutional
+      # Render enruta el tráfico por un proxy inverso: se confía en sus
+      # cabeceras para que el límite por IP use la dirección real del cliente.
+      - key: TRUSTED_PROXIES
+        value: "*"
+      - key: TOKEN_LIFETIME_MINUTES
+        value: "120"
+      - key: TOKEN_IDLE_MINUTES
+        value: "30"
+
+      - key: DB_CONNECTION
+        value: sqlite
+      - key: DB_DATABASE
+        value: /var/www/html/storage/database/database.sqlite
+      - key: SQLITE_JOURNAL_MODE
+        value: wal
+      - key: SQLITE_BUSY_TIMEOUT
+        value: "1500"
+      - key: SESSION_DRIVER
+        value: database
+      - key: SESSION_SECURE_COOKIE
+        value: "true"
+      - key: CACHE_STORE
+        value: database
+      - key: QUEUE_CONNECTION
+        value: database
+
+      # Render Free no tiene Shell ni disco persistente. En cada arranque con
+      # una base vacía, demo:ensure-seeded crea los datos ficticios. Si ya hay
+      # registros, no escribe nada y nunca restablece contraseñas.
+      - key: DEMO_SEED_ON_EMPTY
+        value: "true"
+
+      # QR + Google OIDC. GOOGLE_REDIRECT_URI debe coincidir exactamente con
+      # el URI autorizado en Google Cloud Console.
+      - key: QR_AUTH_TTL_MINUTES
+        value: "10"
+      - key: QR_AUTH_URL
+        value: https://chatbot-uncpggl-api.onrender.com
+      - key: GOOGLE_CLIENT_ID
         sync: false
+      - key: GOOGLE_SECRET
+        sync: false
+      - key: GOOGLE_REDIRECT_URI
+        value: https://chatbot-uncpggl-api.onrender.com/auth/google/callback
+      - key: GOOGLE_AUTH_URL
+        value: https://accounts.google.com/o/oauth2/v2/auth
+      - key: GOOGLE_TOKEN_URL
+        value: https://oauth2.googleapis.com/token
+      - key: GOOGLE_JWKS_URL
+        value: https://www.googleapis.com/oauth2/v3/certs
+      - key: GOOGLE_JWKS_CACHE_SECONDS
+        value: "3600"
+      # JSON crudo, sin comillas simples externas. Debe contener los tres
+      # titulares y sus seis carnés: 2024-MED-001, 2023-ISI-001,
+      # 2024-ADM-001, 2022-ICI-001, 2025-ENF-001 y 2023-MED-002.
+      - key: GOOGLE_ACCOUNT_LINKS
+        sync: false
+      - key: QR_AUTH_TEST_OIDC_VERIFIER
+        value: ""
+
+      # El acceso QR no envía correos.
+      - key: MAIL_MAILER
+        value: log
+
+      - key: GROQ_API_KEY
+        sync: false
+      - key: GROQ_TIMEOUT
+        value: "4"

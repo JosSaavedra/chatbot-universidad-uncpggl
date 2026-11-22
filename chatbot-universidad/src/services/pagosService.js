@@ -1,3 +1,5 @@
+import { sessionFetch } from "./authService";
+
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000/api";
 
 /**
@@ -8,7 +10,14 @@ const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000/api";
  * el mensaje enviado por el backend.
  */
 export const consultarPagos = async (token) => {
-  const response = await fetch(`${API_URL}/student-payments`, {
+  return loadPaymentData("/student-payments", token);
+};
+
+export const consultarRecibo = (id, token) =>
+  loadPaymentData(`/student-payments/${encodeURIComponent(id)}/receipt`, token);
+
+async function loadPaymentData(path, token) {
+  const response = await sessionFetch(`${API_URL}${path}`, {
     headers: {
       Accept: "application/json",
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -24,4 +33,4 @@ export const consultarPagos = async (token) => {
   }
 
   return payload.data;
-};
+}

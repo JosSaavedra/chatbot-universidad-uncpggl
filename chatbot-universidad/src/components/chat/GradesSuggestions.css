@@ -8,8 +8,8 @@
   align-items: center;
   gap: 12px;
   text-align: left;
-  background: #1f2937;
-  border: 1px solid #334155;
+  background: var(--theme-surface-2);
+  border: 1px solid var(--theme-border-strong);
   border-radius: 12px;
   padding: 12px 14px;
   cursor: pointer;
@@ -19,7 +19,7 @@
 
 .grades-suggest-btn:hover {
   border-color: #991b1b;
-  background: #16202f;
+  background: var(--theme-hover);
   transform: translateY(-1px);
 }
 
@@ -44,18 +44,18 @@
 }
 
 .grades-suggest-title {
-  color: #f8fafc;
+  color: var(--theme-heading);
   font-size: 0.9rem;
   font-weight: 700;
 }
 
 .grades-suggest-sub {
-  color: #94a3b8;
+  color: var(--theme-muted);
   font-size: 0.76rem;
 }
 
 .grades-suggest-cta {
-  color: #fca5a5;
+  color: var(--theme-accent-soft);
   font-size: 0.76rem;
   font-weight: 600;
 }

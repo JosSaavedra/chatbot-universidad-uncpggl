@@ -65,14 +65,59 @@ class HolidayService
      *
      * @return array<int, array{date:string, name:string, original_name:string}>
      */
+    public static function supportsRange(Carbon $from, Carbon $to): bool
+    {
+        return $from->year >= 2000 && $to->year <= 2100 && $to->gte($from)
+            && $to->year - $from->year <= 1
+            && $from->copy()->startOfDay()->diffInDays($to->copy()->startOfDay()) < 366;
+    }
+
     public function getHolidays(Carbon $from, Carbon $to): array
     {
-        $result = [];
+        if (!self::supportsRange($from, $to)) {
+            return [];
+        }
 
+        return $this->fetchRange($from, $to);
+    }
+
+    public function getHolidaysForCurrentAndNextYear(Carbon $today): array
+    {
+        if ($today->year < 2000 || $today->year >= 2100) {
+            return $this->getHolidays($today->copy()->startOfYear(), $today->copy()->endOfYear());
+        }
+
+        return $this->fetchRange($today->copy()->startOfYear(), $today->copy()->addYear()->endOfYear());
+    }
+
+    private function fetchRange(Carbon $from, Carbon $to): array
+    {
+        $result = [];
+        $deadline = hrtime(true) + 3_000_000_000;
         foreach (range($from->year, $to->year) as $year) {
-            $cached = Cache::remember("holidays_ni_{$year}", now()->addDay(), function () use ($year) {
-                return $this->fetchYear($year);
-            });
+            $key = "holidays_ni_{$year}";
+            $cached = Cache::get($key);
+            if (!is_array($cached) && hrtime(true) < $deadline) {
+                // One worker may contact Nager.Date at a time. Others use cached results.
+                $cached = Cache::lock('holidays:upstream', 5)->get(function () use ($key, $year, $deadline) {
+                    $cached = Cache::get($key);
+                    if (is_array($cached)) {
+                        return $cached;
+                    }
+
+                    $seconds = min(1.5, ($deadline - hrtime(true)) / 1_000_000_000);
+                    if ($seconds < 0.1 || !\Illuminate\Support\Facades\RateLimiter::attempt(
+                        'holidays:upstream-budget', 12, static fn () => true, 60
+                    )) {
+                        return [];
+                    }
+
+                    $holidays = $this->fetchYear($year, $seconds);
+                    Cache::put($key, $holidays, $holidays === [] ? 60 : 86400);
+
+                    return $holidays;
+                });
+            }
 
             $result = array_merge($result, is_array($cached) ? $cached : []);
         }
@@ -123,10 +168,10 @@ class HolidayService
      * Consulta Nager.Date para un año. Si el servicio falla se devuelve vacío
      * (no se inventan fechas).
      */
-    private function fetchYear(int $year): array
+    private function fetchYear(int $year, float $seconds): array
     {
         try {
-            $response = Http::timeout(10)
+            $response = Http::connectTimeout(min(1, $seconds))->timeout($seconds)
                 ->acceptJson()
                 ->get("https://date.nager.at/api/v3/PublicHolidays/{$year}/NI");
 

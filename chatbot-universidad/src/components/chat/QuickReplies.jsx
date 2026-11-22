@@ -15,8 +15,12 @@ function QuickReplies({ onSelect, onOpenCalendar, onOpenOferta, onOpenCarreras, 
   if (!visible) return null;
 
   return (
-    <div className="quick-replies">
-      <p className="quick-replies-title">Preguntas frecuentes:</p>
+    <div
+      id="quick-replies-menu"
+      className="quick-replies"
+      aria-label="Preguntas frecuentes"
+    >
+      <p className="quick-replies-title">Preguntas frecuentes</p>
       <div className="quick-replies-grid">
         {quickReplies.map((qr, i) => (
           <button

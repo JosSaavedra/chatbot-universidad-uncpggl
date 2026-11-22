@@ -8,6 +8,28 @@
  */
 
 /** Escapa un valor para insertarlo con seguridad en el HTML del documento. */
+import { getToken, subscribeAuth } from "../services/authService.js";
+
+const privatePrintWindows = new Set();
+let printOwner = null;
+
+function closePrivatePrintWindows() {
+  for (const popup of privatePrintWindows) {
+    if (!popup.closed) popup.close();
+  }
+  privatePrintWindows.clear();
+  printOwner = null;
+}
+
+subscribeAuth(() => {
+  if (getToken() !== printOwner) closePrivatePrintWindows();
+});
+
+if (typeof window !== "undefined") {
+  // A reload discards the window handles. Close private reports before that happens.
+  window.addEventListener("pagehide", closePrivatePrintWindows);
+}
+
 export const escapeHtml = (value) =>
   String(value ?? "")
     .replaceAll("&", "&amp;")
@@ -119,18 +141,24 @@ export const renderDocument = ({
  * Abre una ventana con el documento y lanza el diálogo de impresión
  * ("Guardar como PDF"). Lanza un error si el navegador bloquea la ventana.
  */
-export const printInPopup = (html, title) => {
-  const win = window.open("", "_blank", "width=820,height=960");
+export const printInPopup = (html, title, win = window.open("", "_blank", "width=820,height=960")) => {
   if (!win) {
     throw new Error("El navegador bloqueó la ventana de impresión.");
   }
+  if (getToken()) {
+    printOwner = getToken();
+    for (const popup of privatePrintWindows) {
+      if (popup.closed) privatePrintWindows.delete(popup);
+    }
+    privatePrintWindows.add(win);
+  }
   win.document.open();
   win.document.write(html);
-  win.document.close();
   win.document.title = title;
   win.focus();
   // Se espera a que cargue para imprimir de forma confiable.
   win.onload = () => {
     win.print();
   };
+  win.document.close();
 };

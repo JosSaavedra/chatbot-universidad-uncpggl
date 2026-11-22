@@ -16,18 +16,32 @@ COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
 WORKDIR /var/www/html
 
-COPY . .
+COPY artisan composer.json composer.lock ./
+COPY app/ app/
+COPY bootstrap/ bootstrap/
+COPY config/ config/
+COPY database/factories/ database/factories/
+COPY database/migrations/ database/migrations/
+COPY database/seeders/ database/seeders/
+COPY docker/ docker/
+COPY public/ public/
+COPY resources/ resources/
+COPY routes/ routes/
 
-RUN mkdir -p bootstrap/cache storage/framework/cache storage/framework/sessions storage/framework/views storage/framework/testing storage/logs \
-    && chmod -R 777 bootstrap/cache storage
+RUN mkdir -p bootstrap/cache storage/database storage/framework/cache/data storage/framework/sessions storage/framework/views storage/logs \
+    && composer install --no-dev --no-scripts --no-interaction --prefer-dist --optimize-autoloader \
+    && chown -R www-data:www-data bootstrap/cache storage \
+    && chmod -R u=rwX,g=,o= bootstrap/cache storage
 
-RUN composer install --no-dev --no-scripts --no-interaction --prefer-dist
+ENV APP_ENV=production APP_DEBUG=false DB_CONNECTION=sqlite \
+    DB_DATABASE=/var/www/html/storage/database/database.sqlite \
+    PHP_CLI_SERVER_WORKERS=4
 
-RUN composer dump-autoload --optimize || { echo '=== php -m ==='; php -m; echo '=== artisan package:discover -vvv ==='; php artisan package:discover --ansi -vvv; exit 1; }
-
-RUN touch database/database.sqlite \
-    && chmod -R 777 database
+USER www-data
 
 EXPOSE 10000
 
-CMD ["sh", "-c", "php artisan migrate --force && php artisan db:seed --force && exec php artisan serve --host=0.0.0.0 --port=\"${PORT:-8000}\""]
+# El arranque migra SQLite, siembra datos ficticios sólo si la base está vacía
+# y DEMO_SEED_ON_EMPTY=true, y sincroniza los vínculos QR. Nunca restablece
+# contraseñas ni sobrescribe registros existentes.
+CMD ["sh", "docker/start.sh"]

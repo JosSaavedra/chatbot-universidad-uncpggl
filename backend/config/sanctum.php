@@ -10,7 +10,7 @@ return [
         Sanctum::currentApplicationUrlWithPort(),
     ))),
     'guard' => ['web'],
-    'expiration' => null,
+    'expiration' => max(1, (int) env('TOKEN_LIFETIME_MINUTES', 120)),
     'token_prefix' => env('SANCTUM_TOKEN_PREFIX', ''),
     'middleware' => [
         'authenticate_session' => AuthenticateSession::class,

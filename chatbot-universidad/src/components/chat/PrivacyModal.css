@@ -1,7 +1,7 @@
 .privacy-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.6);
+  background: var(--theme-overlay);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -14,11 +14,11 @@
   max-width: 460px;
   max-height: 80vh;
   overflow-y: auto;
-  background: #111827;
-  border: 1px solid #334155;
+  background: var(--theme-card);
+  border: 1px solid var(--theme-border-strong);
   border-radius: 16px;
   padding: 18px;
-  box-shadow: 0 20px 40px -12px rgba(0, 0, 0, 0.7);
+  box-shadow: 0 20px 40px -12px var(--theme-shadow-strong);
   animation: fadeInUp 0.2s ease;
 }
 
@@ -31,7 +31,7 @@
 }
 
 .privacy-modal-header h3 {
-  color: #f8fafc;
+  color: var(--theme-heading);
   font-size: 1.05rem;
   margin: 0;
 }
@@ -39,7 +39,7 @@
 .privacy-modal-close {
   background: transparent;
   border: none;
-  color: #94a3b8;
+  color: var(--theme-muted);
   font-size: 1rem;
   cursor: pointer;
   padding: 4px 8px;
@@ -48,8 +48,8 @@
 }
 
 .privacy-modal-close:hover {
-  background: #1f2937;
-  color: #f8fafc;
+  background: var(--theme-surface-2);
+  color: var(--theme-heading);
 }
 
 .privacy-modal-body {
@@ -60,11 +60,11 @@
 
 .privacy-modal-body p {
   margin: 0;
-  color: #cbd5e1;
+  color: var(--theme-text-soft);
   font-size: 0.85rem;
   line-height: 1.5;
 }
 
 .privacy-modal-body strong {
-  color: #f8fafc;
+  color: var(--theme-heading);
 }

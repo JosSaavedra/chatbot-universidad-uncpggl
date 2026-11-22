@@ -3,6 +3,8 @@
 namespace Tests\Feature;
 
 use App\Models\Career;
+use App\Models\Conversation;
+use App\Models\Message;
 use App\Models\Student;
 use App\Models\User;
 use App\Services\ChatbotService;
@@ -14,10 +16,8 @@ use Tests\TestCase;
  * PROBLEMA 1 — Reconocimiento del carné estudiantil.
  *
  * Un carné (p. ej. "2024-CON-001") debe reconocerse como identificación del
- * estudiante y responder con un saludo personalizado generado por Laravel
- * (nombre desde la base de datos), NUNCA interpretando "CON-001" como el código
- * de la carrera de Contabilidad. La detección tiene prioridad sobre cualquier
- * otra intención y no emite tokens ni datos personales.
+ * estudiante sin confundirlo con un código de carrera. El saludo con nombre
+ * sólo se genera para el dueño autenticado del carné.
  */
 class ChatbotCarnetTest extends TestCase
 {
@@ -26,6 +26,7 @@ class ChatbotCarnetTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        config(['student_access.demo' => true]);
 
         $careers = [
             ['name' => 'Contabilidad Pública y Finanzas', 'code' => 'CON-001', 'faculty' => 'Ciencias Económicas y Administrativas', 'duration_years' => 4, 'enrollment_fee' => 600, 'monthly_fee' => 340],
@@ -38,9 +39,9 @@ class ChatbotCarnetTest extends TestCase
         }
 
         $students = [
-            ['name' => 'Gabriela Castillo', 'email' => 'gabriela@uncpggl.edu.ni', 'code' => 'CON-001', 'student_code' => '2024-CON-001'],
-            ['name' => 'María José Téllez', 'email' => 'maria@uncpggl.edu.ni',    'code' => 'MED-001', 'student_code' => '2024-MED-001'],
-            ['name' => 'Carlos Mendoza',    'email' => 'carlos@uncpggl.edu.ni',   'code' => 'ISI-001', 'student_code' => '2023-ISI-001'],
+            ['name' => 'Gabriela Castillo', 'email' => 'estudiante11@example.com', 'code' => 'CON-001', 'student_code' => '2024-CON-001'],
+            ['name' => 'María José Téllez', 'email' => 'estudiante12@example.com', 'code' => 'MED-001', 'student_code' => '2024-MED-001'],
+            ['name' => 'Carlos Mendoza',    'email' => 'estudiante13@example.com', 'code' => 'ISI-001', 'student_code' => '2023-ISI-001'],
         ];
 
         foreach ($students as $s) {
@@ -60,9 +61,14 @@ class ChatbotCarnetTest extends TestCase
         return app(ChatbotService::class);
     }
 
-    public function test_known_carnet_returns_personalized_greeting(): void
+    private function owner(): User
     {
-        $reply = $this->service()->processQuery('2024-CON-001');
+        return User::where('email', 'estudiante11@example.com')->firstOrFail();
+    }
+
+    public function test_the_owner_can_receive_a_personalized_greeting(): void
+    {
+        $reply = $this->service()->processQuery('2024-CON-001', $this->owner()->id);
 
         $this->assertSame('carnet_greeting', $reply['intent']);
         $this->assertStringContainsString('Gabriela Castillo', $reply['text']);
@@ -71,14 +77,12 @@ class ChatbotCarnetTest extends TestCase
 
     public function test_carnet_greeting_matches_the_test_matrix(): void
     {
-        $this->assertStringContainsString(
-            'María José Téllez',
-            $this->service()->processQuery('2024-MED-001')['text']
-        );
-        $this->assertStringContainsString(
-            'Carlos Mendoza',
-            $this->service()->processQuery('2023-ISI-001')['text']
-        );
+        foreach (['2024-MED-001', '2023-ISI-001'] as $carnet) {
+            $reply = $this->service()->processQuery($carnet, $this->owner()->id);
+            $this->assertSame('carnet_not_found', $reply['intent']);
+            $this->assertStringNotContainsString('María José Téllez', $reply['text']);
+            $this->assertStringNotContainsString('Carlos Mendoza', $reply['text']);
+        }
     }
 
     public function test_carnet_accepts_lowercase_and_accidental_spaces(): void
@@ -86,7 +90,7 @@ class ChatbotCarnetTest extends TestCase
         foreach (['2024-con-001', '2024 - CON - 001', '  2024-CON-001  '] as $input) {
             $this->assertSame(
                 'carnet_greeting',
-                $this->service()->processQuery($input)['intent'],
+                $this->service()->processQuery($input, $this->owner()->id)['intent'],
                 "Falló para: {$input}"
             );
         }
@@ -95,7 +99,7 @@ class ChatbotCarnetTest extends TestCase
     public function test_carnet_with_lead_in_phrase_is_recognized(): void
     {
         foreach (['Mi carné es 2024-CON-001', 'mi carnet: 2024-CON-001', 'Hola, mi carné es 2024-con-001'] as $input) {
-            $reply = $this->service()->processQuery($input);
+            $reply = $this->service()->processQuery($input, $this->owner()->id);
             $this->assertSame('carnet_greeting', $reply['intent'], "Falló para: {$input}");
             $this->assertStringContainsString('Gabriela Castillo', $reply['text']);
         }
@@ -137,7 +141,7 @@ class ChatbotCarnetTest extends TestCase
     public function test_carnet_greeting_name_is_not_sent_to_ai_memory(): void
     {
         // El nombre del saludo no debe viajar a la IA en la ventana de memoria.
-        $greeting = $this->service()->processQuery('2024-CON-001')['text'];
+        $greeting = $this->service()->processQuery('2024-CON-001', $this->owner()->id)['text'];
         $this->assertStringContainsString('Gabriela Castillo', $greeting);
 
         $history = [
@@ -145,35 +149,61 @@ class ChatbotCarnetTest extends TestCase
             ['role' => 'bot', 'content' => $greeting, 'data' => null],
         ];
 
-        $method = new \ReflectionMethod(ChatbotService::class, 'memoryWindow');
-        $method->setAccessible(true);
-        $window = $method->invoke($this->service(), $history);
+        $redacted = \App\Models\Message::redactStudentGreeting($greeting);
+        $this->assertStringNotContainsString('Gabriela Castillo', $redacted);
+        $this->assertStringContainsString('Asistente Académico', $redacted);
 
-        $joined = implode(' ', array_column($window, 'content'));
-        $this->assertStringNotContainsString('Gabriela Castillo', $joined);
-
-        // El saludo se conserva (solo sin el nombre), no se elimina la memoria.
-        $this->assertStringContainsString('Asistente Académico', $joined);
+        config(['services.groq.key' => 'test-key']);
+        Http::fake(['*' => Http::response(['choices' => [['message' => ['content' => 'Catálogo']]]])]);
+        $this->service()->processQuery('¿Qué carreras ofrecen?', null, $history);
+        Http::assertSent(function ($request) {
+            $this->assertCount(2, $request['messages']);
+            $this->assertStringNotContainsString('Gabriela Castillo', json_encode($request['messages']));
+            return true;
+        });
     }
 
-    public function test_http_carnet_does_not_call_groq_and_returns_no_token(): void
+    public function test_public_chat_rejects_carnet_identity_even_in_demo_mode(): void
     {
         config(['services.groq.key' => 'test-key']);
         Http::fake(['*' => Http::response(['choices' => [['message' => ['content' => 'no usar']]]], 200)]);
 
         $response = $this->postJson('/api/chat', [
             'message'    => '2024-CON-001',
-            'session_id' => 'sess_carnet_http',
+            'user_id' => $this->owner()->id,
+            'carnet' => '2024-CON-001',
         ]);
 
         $response->assertOk()
-            ->assertJsonPath('intent', 'carnet_greeting')
+            ->assertJsonPath('intent', 'carnet_not_found')
             ->assertJsonPath('data', null);
 
-        $this->assertStringContainsString('Gabriela Castillo', $response->json('reply'));
+        $this->assertStringNotContainsString('Gabriela Castillo', $response->json('reply'));
         $this->assertArrayNotHasKey('token', $response->json());
 
         // El saludo se genera en Laravel: no se consulta a la IA.
         Http::assertNothingSent();
+    }
+
+    public function test_public_history_redacts_legacy_greetings_and_excludes_owned_messages(): void
+    {
+        $owner = $this->owner();
+        $conversation = Conversation::create(['session_id' => 'legacy-demo', 'title' => 'Consulta']);
+        $greeting = $this->service()->processQuery('2024-CON-001', $owner->id)['text'];
+
+        $conversation->messages()->create(['role' => 'bot', 'content' => $greeting]);
+        Message::create([
+            'conversation_id' => $conversation->id,
+            'user_id' => $owner->id,
+            'role' => 'bot',
+            'content' => 'Dato privado del estudiante',
+        ]);
+
+        $this->getJson('/api/chat/history?session_id=legacy-demo')->assertForbidden();
+        $this->getJson('/api/chat/history?session_id=legacy-demo', $this->guestChatHeaders('legacy-demo'))
+            ->assertOk()
+            ->assertJsonCount(1, 'messages')
+            ->assertJsonPath('messages.0.content', str_replace('¡Hola, Gabriela Castillo!', '¡Hola!', $greeting))
+            ->assertJsonMissingPath('messages.0.user_id');
     }
 }

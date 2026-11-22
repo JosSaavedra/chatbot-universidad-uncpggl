@@ -1,7 +1,180 @@
+/* ==========================================================================
+   Tema de la aplicación
+   El modo noche es el predeterminado. El modo claro se activa añadiendo
+   data-theme="light" al elemento <html> (lo gestiona el hook useTheme).
+   ========================================================================== */
+
+:root {
+  color-scheme: dark;
+
+  /* Superficies */
+  --theme-bg: #0f172a;
+  --theme-card: #111827;
+  --theme-surface: #1a2332;
+  --theme-surface-2: #1f2937;
+  --theme-hover: #16202f;
+  --theme-input: #0f172a;
+  --theme-input-bar: #2f2f2f;
+  --theme-input-bar-border: #424242;
+  --theme-input-bar-focus: #666666;
+  --theme-bar-bg: rgba(0, 0, 0, 0.2);
+  --theme-avatar-bg: #374151;
+  --theme-card-gradient: linear-gradient(180deg, #1c2738 0%, #18202e 100%);
+
+  /* Bordes */
+  --theme-border: #263449;
+  --theme-border-strong: #334155;
+  --theme-border-soft: rgba(255, 255, 255, 0.25);
+  --theme-hover-border: #3b4d6b;
+  --theme-ghost-hover: rgba(255, 255, 255, 0.1);
+
+  /* Texto: blanco suave para reducir el resplandor sobre fondos oscuros. */
+  --theme-text: #e6eaf2;
+  --theme-heading: #f8fafc;
+  --theme-text-soft: #cbd5e1;
+  --theme-muted: #94a3b8;
+  --theme-faint: #64748b;
+  --theme-text-weight: 400;
+
+  /* Chips y detalles */
+  --theme-chip-bg: #223047;
+  --theme-chip-border: #2f4059;
+  --theme-day-active-bg: #334155;
+  --theme-day-active-border: #64748b;
+
+  /* Estados */
+  --theme-success-bg: rgba(34, 197, 94, 0.14);
+  --theme-success-border: rgba(34, 197, 94, 0.4);
+  --theme-success-text: #86efac;
+  --theme-warning-bg: rgba(245, 158, 11, 0.14);
+  --theme-warning-border: rgba(245, 158, 11, 0.4);
+  --theme-warning-text: #fcd34d;
+  --theme-danger-bg: rgba(239, 68, 68, 0.16);
+  --theme-danger-border: rgba(239, 68, 68, 0.45);
+  --theme-danger-text: #fca5a5;
+  --theme-error-bg: rgba(220, 38, 38, 0.15);
+  --theme-error-border: #dc2626;
+  --theme-error-text: #fca5a5;
+
+  /* Acentos institucionales */
+  --theme-red: #991b1b;
+  --theme-red-dark: #7f1d1d;
+  --theme-red-accent: #dc2626;
+  --theme-accent-soft: #fca5a5;
+  --theme-red-link-hover: #fecaca;
+  --theme-blue: #1d4ed8;
+  --theme-blue-dark: #1e40af;
+  --theme-blue-soft: #93c5fd;
+
+  /* Destacados de horario */
+  --theme-current-bg: rgba(153, 27, 27, 0.22);
+  --theme-next-bg: rgba(37, 99, 235, 0.16);
+  --theme-radial: rgba(153, 27, 27, 0.16);
+  --theme-input-focus-ring: rgba(220, 38, 38, 0.16);
+
+  /* Capas y sombras */
+  --theme-overlay: rgba(0, 0, 0, 0.6);
+  --theme-overlay-soft: rgba(2, 6, 23, 0.45);
+  --theme-shadow: rgba(0, 0, 0, 0.3);
+  --theme-shadow-strong: rgba(0, 0, 0, 0.7);
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+  color-scheme: only light;
+
+  /* Superficies */
+  --theme-bg: #eef2f7;
+  --theme-card: #ffffff;
+  --theme-surface: #f8fafc;
+  --theme-surface-2: #f1f5f9;
+  --theme-hover: #e9eef6;
+  --theme-input: #ffffff;
+  --theme-input-bar: #ffffff;
+  --theme-input-bar-border: #cbd5e1;
+  --theme-input-bar-focus: #94a3b8;
+  --theme-bar-bg: rgba(15, 23, 42, 0.03);
+  --theme-avatar-bg: #e2e8f0;
+  --theme-card-gradient: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+
+  /* Bordes */
+  --theme-border: #dde5ef;
+  --theme-border-strong: #cbd5e1;
+  --theme-border-soft: rgba(15, 23, 42, 0.2);
+  --theme-hover-border: #94a3b8;
+  --theme-ghost-hover: rgba(15, 23, 42, 0.06);
+
+  /* Texto: gris muy oscuro, algo más suave que el negro puro. */
+  --theme-text: #1f2937;
+  --theme-heading: #0f172a;
+  --theme-text-soft: #334155;
+  --theme-muted: #64748b;
+  --theme-faint: #94a3b8;
+  --theme-text-weight: 600;
+
+  /* Chips y detalles */
+  --theme-chip-bg: #eef2f7;
+  --theme-chip-border: #d7e0ec;
+  --theme-day-active-bg: #cbd5e1;
+  --theme-day-active-border: #94a3b8;
+
+  /* Estados */
+  --theme-success-bg: rgba(22, 163, 74, 0.1);
+  --theme-success-border: rgba(22, 163, 74, 0.3);
+  --theme-success-text: #15803d;
+  --theme-warning-bg: rgba(217, 119, 6, 0.1);
+  --theme-warning-border: rgba(217, 119, 6, 0.3);
+  --theme-warning-text: #b45309;
+  --theme-danger-bg: rgba(220, 38, 38, 0.1);
+  --theme-danger-border: rgba(220, 38, 38, 0.3);
+  --theme-danger-text: #b91c1c;
+  --theme-error-bg: rgba(220, 38, 38, 0.08);
+  --theme-error-border: #dc2626;
+  --theme-error-text: #b91c1c;
+
+  /* Acentos institucionales */
+  --theme-red: #991b1b;
+  --theme-red-dark: #7f1d1d;
+  --theme-red-accent: #dc2626;
+  --theme-accent-soft: #b91c1c;
+  --theme-red-link-hover: #7f1d1d;
+  --theme-blue: #1d4ed8;
+  --theme-blue-dark: #1e40af;
+  --theme-blue-soft: #1d4ed8;
+
+  /* Destacados de horario */
+  --theme-current-bg: rgba(153, 27, 27, 0.08);
+  --theme-next-bg: rgba(37, 99, 235, 0.08);
+  --theme-radial: rgba(153, 27, 27, 0.06);
+  --theme-input-focus-ring: rgba(220, 38, 38, 0.12);
+
+  /* Capas y sombras */
+  --theme-overlay: rgba(15, 23, 42, 0.32);
+  --theme-overlay-soft: rgba(15, 23, 42, 0.22);
+  --theme-shadow: rgba(15, 23, 42, 0.1);
+  --theme-shadow-strong: rgba(15, 23, 42, 0.22);
+}
+
+html {
+  background: var(--theme-bg);
+}
+
 body {
   margin: 0;
   padding: 0;
   font-family: system-ui, -apple-system, sans-serif;
+  font-weight: var(--theme-text-weight);
+  background: var(--theme-bg);
+  color: var(--theme-text);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+/* Los controles nativos no heredan el peso de la letra por defecto. */
+button,
+input,
+textarea,
+select {
+  font-weight: inherit;
 }

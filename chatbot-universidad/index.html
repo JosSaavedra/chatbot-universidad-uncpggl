@@ -1,10 +1,27 @@
 <!doctype html>
-<html lang="en">
+<html lang="es" data-theme="dark">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="dark light" />
+    <!-- La aplicación tiene su propio selector de tema; se evita que las
+         extensiones de modo oscuro vuelvan a oscurecer el modo claro. -->
+    <meta name="darkreader-lock" />
     <title>chatbot-universidad</title>
+    <script>
+      // Aplica el tema guardado antes del primer render para evitar un
+      // destello del modo noche cuando el estudiante eligió el modo claro.
+      try {
+        var storedTheme = localStorage.getItem("uncpggl-theme");
+        document.documentElement.setAttribute(
+          "data-theme",
+          storedTheme === "light" ? "light" : "dark"
+        );
+      } catch (error) {
+        document.documentElement.setAttribute("data-theme", "dark");
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>

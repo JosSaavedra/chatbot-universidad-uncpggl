@@ -7,8 +7,8 @@
   flex-direction: column;
   gap: 16px;
   background:
-    radial-gradient(circle at 15% 0%, rgba(153, 27, 27, 0.16), transparent 55%),
-    #0f172a;
+    radial-gradient(circle at 15% 0%, var(--theme-radial), transparent 55%),
+    var(--theme-bg);
   animation: fadeInUp 0.3s ease;
 }
 
@@ -26,8 +26,8 @@
 
 .notas-back-btn {
   background: transparent;
-  border: 1px solid #334155;
-  color: #cbd5e1;
+  border: 1px solid var(--theme-border-strong);
+  color: var(--theme-text-soft);
   border-radius: 999px;
   padding: 8px 16px;
   font-size: 0.82rem;
@@ -36,9 +36,9 @@
 }
 
 .notas-back-btn:hover {
-  background: #1f2937;
-  border-color: #64748b;
-  color: #f1f5f9;
+  background: var(--theme-surface-2);
+  border-color: var(--theme-faint);
+  color: var(--theme-heading);
 }
 
 /* --- Encabezado --- */
@@ -47,7 +47,7 @@
   border: 1px solid #7f1d1d;
   border-radius: 18px;
   padding: 18px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 8px 24px var(--theme-shadow);
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -91,12 +91,19 @@
 
 .notas-error {
   margin-top: 4px;
-  background: rgba(127, 29, 29, 0.35);
-  border: 1px solid #b91c1c;
-  color: #fecaca;
+  background: var(--theme-error-bg);
+  border: 1px solid var(--theme-error-border);
+  color: var(--theme-error-text);
   border-radius: 12px;
   padding: 12px 14px;
   font-size: 0.85rem;
+}
+
+/* Dentro del encabezado rojo el error mantiene contraste claro */
+.notas-hero .notas-error {
+  background: rgba(127, 29, 29, 0.35);
+  border-color: #b91c1c;
+  color: #fecaca;
 }
 
 /* --- Ficha del estudiante --- */
@@ -104,8 +111,8 @@
   display: flex;
   align-items: center;
   gap: 14px;
-  background: #1a2332;
-  border: 1px solid #263449;
+  background: var(--theme-surface);
+  border: 1px solid var(--theme-border);
   border-radius: 16px;
   padding: 16px 18px;
 }
@@ -128,13 +135,13 @@
 }
 
 .notas-student-info h3 {
-  color: #f8fafc;
+  color: var(--theme-heading);
   font-size: 1.05rem;
   margin-bottom: 2px;
 }
 
 .notas-student-info > p {
-  color: #94a3b8;
+  color: var(--theme-muted);
   font-size: 0.85rem;
   margin-bottom: 8px;
 }
@@ -146,30 +153,30 @@
 }
 
 .notas-chip {
-  background: #0f172a;
-  border: 1px solid #334155;
-  color: #cbd5e1;
+  background: var(--theme-input);
+  border: 1px solid var(--theme-border-strong);
+  color: var(--theme-text-soft);
   border-radius: 999px;
   padding: 3px 10px;
   font-size: 0.72rem;
 }
 
 .notas-chip.ok {
-  background: rgba(34, 197, 94, 0.14);
-  border-color: rgba(34, 197, 94, 0.4);
-  color: #86efac;
+  background: var(--theme-success-bg);
+  border-color: var(--theme-success-border);
+  color: var(--theme-success-text);
 }
 
 .notas-chip.bad {
-  background: rgba(239, 68, 68, 0.16);
-  border-color: rgba(239, 68, 68, 0.45);
-  color: #fca5a5;
+  background: var(--theme-danger-bg);
+  border-color: var(--theme-danger-border);
+  color: var(--theme-accent-soft);
 }
 
 .notas-chip.warn {
-  background: rgba(245, 158, 11, 0.14);
-  border-color: rgba(245, 158, 11, 0.4);
-  color: #fcd34d;
+  background: var(--theme-warning-bg);
+  border-color: var(--theme-warning-border);
+  color: var(--theme-warning-text);
 }
 
 /* --- Resumen --- */
@@ -187,8 +194,8 @@
 
 .notas-summary-card {
   position: relative;
-  background: #1a2332;
-  border: 1px solid #263449;
+  background: var(--theme-surface);
+  border: 1px solid var(--theme-border);
   border-left-width: 4px;
   border-radius: 14px;
   padding: 14px 16px;
@@ -210,19 +217,19 @@
 }
 
 .notas-summary-label {
-  color: #94a3b8;
+  color: var(--theme-muted);
   font-size: 0.72rem;
   text-transform: uppercase;
   letter-spacing: 0.08em;
 }
 
 .notas-summary-value {
-  color: #f8fafc;
+  color: var(--theme-heading);
   font-size: 1.15rem;
 }
 
 .notas-summary-sub {
-  color: #64748b;
+  color: var(--theme-faint);
   font-size: 0.72rem;
 }
 
@@ -261,7 +268,7 @@
 }
 
 .notas-export-hint {
-  color: #94a3b8;
+  color: var(--theme-muted);
   font-size: 0.76rem;
 }
 
@@ -273,9 +280,9 @@
 }
 
 .notas-filter {
-  background: #1f2937;
-  border: 1px solid #334155;
-  color: #cbd5e1;
+  background: var(--theme-surface-2);
+  border: 1px solid var(--theme-border-strong);
+  color: var(--theme-text-soft);
   border-radius: 999px;
   padding: 7px 14px;
   font-size: 0.78rem;
@@ -284,8 +291,8 @@
 }
 
 .notas-filter:hover {
-  border-color: #64748b;
-  color: #f1f5f9;
+  border-color: var(--theme-faint);
+  color: var(--theme-heading);
 }
 
 .notas-filter.active {
@@ -310,7 +317,7 @@
 }
 
 .notas-period-title {
-  color: #f8fafc;
+  color: var(--theme-heading);
   font-size: 1rem;
 }
 
@@ -327,8 +334,8 @@
 }
 
 .nota-card {
-  background: #1a2332;
-  border: 1px solid #263449;
+  background: var(--theme-surface);
+  border: 1px solid var(--theme-border);
   border-radius: 14px;
   padding: 14px 16px;
   display: flex;
@@ -344,7 +351,7 @@
 }
 
 .nota-subject {
-  color: #f8fafc;
+  color: var(--theme-heading);
   font-size: 0.92rem;
   font-weight: 600;
 }
@@ -362,21 +369,21 @@
 }
 
 .nota-badge.approved {
-  background: rgba(34, 197, 94, 0.14);
-  color: #86efac;
-  border-color: rgba(34, 197, 94, 0.4);
+  background: var(--theme-success-bg);
+  color: var(--theme-success-text);
+  border-color: var(--theme-success-border);
 }
 
 .nota-badge.failed {
-  background: rgba(239, 68, 68, 0.16);
-  color: #fca5a5;
-  border-color: rgba(239, 68, 68, 0.45);
+  background: var(--theme-danger-bg);
+  color: var(--theme-accent-soft);
+  border-color: var(--theme-danger-border);
 }
 
 .nota-badge.pending {
-  background: rgba(245, 158, 11, 0.14);
-  color: #fcd34d;
-  border-color: rgba(245, 158, 11, 0.4);
+  background: var(--theme-warning-bg);
+  color: var(--theme-warning-text);
+  border-color: var(--theme-warning-border);
 }
 
 .nota-stats {
@@ -392,8 +399,8 @@
 }
 
 .nota-stat {
-  background: #111827;
-  border: 1px solid #263449;
+  background: var(--theme-card);
+  border: 1px solid var(--theme-border);
   border-radius: 10px;
   padding: 8px 10px;
   display: flex;
@@ -402,29 +409,29 @@
 }
 
 .nota-stat-label {
-  color: #94a3b8;
+  color: var(--theme-muted);
   font-size: 0.68rem;
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
 
 .nota-stat-value {
-  color: #e2e8f0;
+  color: var(--theme-text);
   font-size: 0.95rem;
   font-weight: 600;
 }
 
 .nota-stat-value.strong {
-  color: #f8fafc;
+  color: var(--theme-heading);
   font-weight: 700;
 }
 
 /* --- Sin datos --- */
 .notas-empty {
-  background: #1a2332;
-  border: 1px dashed #334155;
+  background: var(--theme-surface);
+  border: 1px dashed var(--theme-border-strong);
   border-radius: 14px;
-  color: #94a3b8;
+  color: var(--theme-muted);
   font-size: 0.88rem;
   text-align: center;
   padding: 28px 16px;

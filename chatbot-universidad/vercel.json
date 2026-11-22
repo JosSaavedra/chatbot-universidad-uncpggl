@@ -1,3 +1,16 @@
 {
-  "outputDirectory": "dist"
+  "outputDirectory": "dist",
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "X-Frame-Options", "value": "DENY" },
+        { "key": "Referrer-Policy", "value": "no-referrer" },
+        { "key": "Permissions-Policy", "value": "camera=(), microphone=(), geolocation=()" },
+        { "key": "Strict-Transport-Security", "value": "max-age=31536000" },
+        { "key": "Content-Security-Policy", "value": "default-src 'self'; script-src 'self' 'sha256-FktWBWc9qXYWtYTEX5h2f2+9KSvGpcD2yR7XFswE6NM='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; connect-src 'self' https://chatbot-uncpggl-api.onrender.com; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'" }
+      ]
+    }
+  ]
 }

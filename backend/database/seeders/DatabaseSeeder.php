@@ -2,9 +2,12 @@
 
 namespace Database\Seeders;
 
+use App\Models\Student;
+use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 
 class DatabaseSeeder extends Seeder
 {
@@ -38,31 +41,50 @@ class DatabaseSeeder extends Seeder
         $careerIds = DB::table('careers')->pluck('id', 'code');
 
         $userData = [
-            ['name' => 'María José Téllez',    'email' => 'maria@uncpggl.edu.ni',   'career_code' => 'MED-001', 'student_code' => '2024-MED-001', 'year' => 2],
-            ['name' => 'Carlos Mendoza',        'email' => 'carlos@uncpggl.edu.ni',  'career_code' => 'ISI-001', 'student_code' => '2023-ISI-001', 'year' => 3],
-            ['name' => 'Lucía Hernández',       'email' => 'lucia@uncpggl.edu.ni',   'career_code' => 'ADM-001', 'student_code' => '2024-ADM-001', 'year' => 1],
-            ['name' => 'José Antonio Ruiz',     'email' => 'jose@uncpggl.edu.ni',    'career_code' => 'ICI-001', 'student_code' => '2022-ICI-001', 'year' => 4],
-            ['name' => 'Ana Sofía Morales',     'email' => 'ana@uncpggl.edu.ni',     'career_code' => 'ENF-001', 'student_code' => '2025-ENF-001', 'year' => 1],
-            ['name' => 'Pedro Gutiérrez',       'email' => 'pedro@uncpggl.edu.ni',   'career_code' => 'MED-001', 'student_code' => '2023-MED-002', 'year' => 3],
-            ['name' => 'Gabriela Castillo',     'email' => 'gabriela@uncpggl.edu.ni','career_code' => 'CON-001', 'student_code' => '2024-CON-001', 'year' => 2],
-            ['name' => 'Diego Ramírez',         'email' => 'diego@uncpggl.edu.ni',   'career_code' => 'ISI-001', 'student_code' => '2025-ISI-002', 'year' => 1],
-            ['name' => 'Valeria Ortega',        'email' => 'valeria@uncpggl.edu.ni', 'career_code' => 'ARQ-001', 'student_code' => '2022-ARQ-001', 'year' => 4],
-            ['name' => 'Marcos Espinoza',       'email' => 'marcos@uncpggl.edu.ni',  'career_code' => 'AGR-001', 'student_code' => '2023-AGR-001', 'year' => 3], 
-             
+            ['name' => 'María José Téllez',    'email' => 'estudiante01@example.com',   'career_code' => 'MED-001', 'student_code' => '2024-MED-001', 'year' => 2],
+            ['name' => 'Carlos Mendoza',        'email' => 'estudiante02@example.com',  'career_code' => 'ISI-001', 'student_code' => '2023-ISI-001', 'year' => 3],
+            ['name' => 'Lucía Hernández',       'email' => 'estudiante03@example.com',   'career_code' => 'ADM-001', 'student_code' => '2024-ADM-001', 'year' => 1],
+            ['name' => 'José Antonio Ruiz',     'email' => 'estudiante04@example.com',    'career_code' => 'ICI-001', 'student_code' => '2022-ICI-001', 'year' => 4],
+            ['name' => 'Ana Sofía Morales',     'email' => 'estudiante05@example.com',     'career_code' => 'ENF-001', 'student_code' => '2025-ENF-001', 'year' => 1],
+            ['name' => 'Pedro Gutiérrez',       'email' => 'estudiante06@example.com',   'career_code' => 'MED-001', 'student_code' => '2023-MED-002', 'year' => 3],
+            ['name' => 'Gabriela Castillo',     'email' => 'estudiante07@example.com','career_code' => 'CON-001', 'student_code' => '2024-CON-001', 'year' => 2],
+            ['name' => 'Diego Ramírez',         'email' => 'estudiante08@example.com',   'career_code' => 'ISI-001', 'student_code' => '2025-ISI-002', 'year' => 1],
+            ['name' => 'Valeria Ortega',        'email' => 'estudiante09@example.com', 'career_code' => 'ARQ-001', 'student_code' => '2022-ARQ-001', 'year' => 4],
+            ['name' => 'Marcos Espinoza',       'email' => 'estudiante10@example.com',  'career_code' => 'AGR-001', 'student_code' => '2023-AGR-001', 'year' => 3],
+
 ];
         
 
         foreach ($userData as $u) {
-            $userId = DB::table('users')->insertGetId([
-                'name' => $u['name'], 'email' => $u['email'],
-                'password' => Hash::make('password123'),
-                'created_at' => now(), 'updated_at' => now(),
-            ]);
-            DB::table('students')->insert([
-                'user_id' => $userId, 'career_id' => $careerIds[$u['career_code']],
-                'student_code' => $u['student_code'], 'year_of_study' => $u['year'],
-                'status' => 'active', 'created_at' => now(), 'updated_at' => now(),
-            ]);
+            // Idempotencia: si la cuenta ya existe NO se toca su contraseña ni
+            // se reactiva. El seeder nunca sobrescribe credenciales.
+            $user = User::where('email', $u['email'])->first();
+
+            if (! $user) {
+                $user = User::create([
+                    'name' => $u['name'],
+                    'email' => $u['email'],
+                    // Contraseña NO utilizable: es el hash de un secreto
+                    // aleatorio criptográficamente seguro que nunca se
+                    // divulga ni se imprime. La contraseña real la establece la
+                    // administración con `php artisan student:set-password`.
+                    'password' => Hash::make(Str::random(64)),
+                ]);
+            }
+
+            // La ficha de estudiante sólo se crea si no existe: una cuenta
+            // deshabilitada (status distinto de 'active') no se reactiva.
+            Student::firstOrCreate(
+                ['user_id' => $user->id],
+                [
+                    'career_id' => $careerIds[$u['career_code']],
+                    'student_code' => $u['student_code'],
+                    'year_of_study' => $u['year'],
+                    'status' => 'active',
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]
+            );
         }
 
         $userIds = DB::table('users')->pluck('id', 'email');
@@ -110,50 +132,50 @@ class DatabaseSeeder extends Seeder
 
       $grades = [
     
-    ['user_id' => $userIds['maria@uncpggl.edu.ni'],    'career_id' => $careerIds['MED-001'], 'subject_name' => 'Anatomía I',            'first_partial' => 85, 'second_partial' => 78, 'final_exam' => 82, 'final_grade' => 82, 'status' => 'approved', 'period' => 'I-2026'],
-    ['user_id' => $userIds['maria@uncpggl.edu.ni'],    'career_id' => $careerIds['MED-001'], 'subject_name' => 'Bioquímica I',          'first_partial' => 72, 'second_partial' => 68, 'final_exam' => 70, 'final_grade' => 70, 'status' => 'approved', 'period' => 'I-2026'],
-    ['user_id' => $userIds['maria@uncpggl.edu.ni'],    'career_id' => $careerIds['MED-001'], 'subject_name' => 'Histología',            'first_partial' => 55, 'second_partial' => 58, 'final_exam' => 50, 'final_grade' => 54, 'status' => 'failed',   'period' => 'I-2026'],
-    ['user_id' => $userIds['carlos@uncpggl.edu.ni'],   'career_id' => $careerIds['ISI-001'], 'subject_name' => 'Programación III',      'first_partial' => 90, 'second_partial' => 88, 'final_exam' => 92, 'final_grade' => 90, 'status' => 'approved', 'period' => 'I-2026'],
-    ['user_id' => $userIds['carlos@uncpggl.edu.ni'],   'career_id' => $careerIds['ISI-001'], 'subject_name' => 'Base de Datos I',       'first_partial' => 85, 'second_partial' => 82, 'final_exam' => 88, 'final_grade' => 85, 'status' => 'approved', 'period' => 'I-2026'],
-    ['user_id' => $userIds['carlos@uncpggl.edu.ni'],   'career_id' => $careerIds['ISI-001'], 'subject_name' => 'Sistemas Operativos',   'first_partial' => 60, 'second_partial' => 65, 'final_exam' => 58, 'final_grade' => 61, 'status' => 'approved', 'period' => 'I-2026'],
-    ['user_id' => $userIds['lucia@uncpggl.edu.ni'],    'career_id' => $careerIds['ADM-001'], 'subject_name' => 'Fund. Administración',  'first_partial' => 88, 'second_partial' => null, 'final_exam' => null, 'final_grade' => null, 'status' => 'pending', 'period' => 'I-2026'],
-    ['user_id' => $userIds['lucia@uncpggl.edu.ni'],    'career_id' => $careerIds['ADM-001'], 'subject_name' => 'Matemática General',    'first_partial' => 75, 'second_partial' => null, 'final_exam' => null, 'final_grade' => null, 'status' => 'pending', 'period' => 'I-2026'],
-    ['user_id' => $userIds['jose@uncpggl.edu.ni'],     'career_id' => $careerIds['ICI-001'], 'subject_name' => 'Mecánica de Suelos',    'first_partial' => 78, 'second_partial' => 80, 'final_exam' => 76, 'final_grade' => 78, 'status' => 'approved', 'period' => 'I-2026'],
-    ['user_id' => $userIds['jose@uncpggl.edu.ni'],     'career_id' => $careerIds['ICI-001'], 'subject_name' => 'Estructuras I',         'first_partial' => 45, 'second_partial' => 52, 'final_exam' => 48, 'final_grade' => 48, 'status' => 'failed',   'period' => 'I-2026'],
-    ['user_id' => $userIds['jose@uncpggl.edu.ni'],     'career_id' => $careerIds['ICI-001'], 'subject_name' => 'Topografía II',         'first_partial' => 80, 'second_partial' => 77, 'final_exam' => 82, 'final_grade' => 80, 'status' => 'approved', 'period' => 'I-2026'],
-    ['user_id' => $userIds['ana@uncpggl.edu.ni'],      'career_id' => $careerIds['ENF-001'], 'subject_name' => 'Anatomía Básica',       'first_partial' => 92, 'second_partial' => 90, 'final_exam' => 95, 'final_grade' => 92, 'status' => 'approved', 'period' => 'I-2026'],
-    ['user_id' => $userIds['ana@uncpggl.edu.ni'],      'career_id' => $careerIds['ENF-001'], 'subject_name' => 'Fundamentos Enf.',      'first_partial' => 88, 'second_partial' => 85, 'final_exam' => 90, 'final_grade' => 88, 'status' => 'approved', 'period' => 'I-2026'],
-    ['user_id' => $userIds['pedro@uncpggl.edu.ni'],    'career_id' => $careerIds['MED-001'], 'subject_name' => 'Farmacología I',        'first_partial' => 65, 'second_partial' => 70, 'final_exam' => 68, 'final_grade' => 68, 'status' => 'approved', 'period' => 'I-2026'],
-    ['user_id' => $userIds['pedro@uncpggl.edu.ni'],    'career_id' => $careerIds['MED-001'], 'subject_name' => 'Patología General',     'first_partial' => 50, 'second_partial' => 48, 'final_exam' => 45, 'final_grade' => 48, 'status' => 'failed',   'period' => 'I-2026'],
-    ['user_id' => $userIds['pedro@uncpggl.edu.ni'],    'career_id' => $careerIds['MED-001'], 'subject_name' => 'Microbiología II',      'first_partial' => 75, 'second_partial' => 72, 'final_exam' => 78, 'final_grade' => 75, 'status' => 'approved', 'period' => 'I-2026'],
-    ['user_id' => $userIds['gabriela@uncpggl.edu.ni'], 'career_id' => $careerIds['CON-001'], 'subject_name' => 'Contabilidad II',       'first_partial' => 88, 'second_partial' => 90, 'final_exam' => 85, 'final_grade' => 88, 'status' => 'approved', 'period' => 'I-2026'],
-    ['user_id' => $userIds['gabriela@uncpggl.edu.ni'], 'career_id' => $careerIds['CON-001'], 'subject_name' => 'Finanzas I',            'first_partial' => 92, 'second_partial' => 88, 'final_exam' => 94, 'final_grade' => 91, 'status' => 'approved', 'period' => 'I-2026'],
-    ['user_id' => $userIds['gabriela@uncpggl.edu.ni'], 'career_id' => $careerIds['CON-001'], 'subject_name' => 'Derecho Mercantil',     'first_partial' => 55, 'second_partial' => 58, 'final_exam' => 52, 'final_grade' => 55, 'status' => 'failed',   'period' => 'I-2026'],
-    ['user_id' => $userIds['diego@uncpggl.edu.ni'],    'career_id' => $careerIds['ISI-001'], 'subject_name' => 'Programación I',        'first_partial' => 95, 'second_partial' => 92, 'final_exam' => 98, 'final_grade' => 95, 'status' => 'approved', 'period' => 'I-2026'],
-    ['user_id' => $userIds['diego@uncpggl.edu.ni'],    'career_id' => $careerIds['ISI-001'], 'subject_name' => 'Matemática Discreta',   'first_partial' => 88, 'second_partial' => 85, 'final_exam' => 90, 'final_grade' => 88, 'status' => 'approved', 'period' => 'I-2026'],
-    ['user_id' => $userIds['valeria@uncpggl.edu.ni'],  'career_id' => $careerIds['ARQ-001'], 'subject_name' => 'Diseño Arquitectónico IV','first_partial'=> 82, 'second_partial' => 85, 'final_exam' => 80, 'final_grade' => 82, 'status' => 'approved', 'period' => 'I-2026'],
-    ['user_id' => $userIds['valeria@uncpggl.edu.ni'],  'career_id' => $careerIds['ARQ-001'], 'subject_name' => 'Urbanismo II',           'first_partial' => 45, 'second_partial' => 50, 'final_exam' => 48, 'final_grade' => 48, 'status' => 'failed',   'period' => 'I-2026'],
-    ['user_id' => $userIds['marcos@uncpggl.edu.ni'],   'career_id' => $careerIds['AGR-001'], 'subject_name' => 'Fitotecnia II',          'first_partial' => 78, 'second_partial' => 80, 'final_exam' => 75, 'final_grade' => 78, 'status' => 'approved', 'period' => 'I-2026'],
-    ['user_id' => $userIds['marcos@uncpggl.edu.ni'],   'career_id' => $careerIds['AGR-001'], 'subject_name' => 'Suelos y Fertilización', 'first_partial' => 70, 'second_partial' => 68, 'final_exam' => 72, 'final_grade' => 70, 'status' => 'approved', 'period' => 'I-2026'],
+    ['user_id' => $userIds['estudiante01@example.com'],    'career_id' => $careerIds['MED-001'], 'subject_name' => 'Anatomía I',            'first_partial' => 85, 'second_partial' => 78, 'final_exam' => 82, 'final_grade' => 82, 'status' => 'approved', 'period' => 'I-2026'],
+    ['user_id' => $userIds['estudiante01@example.com'],    'career_id' => $careerIds['MED-001'], 'subject_name' => 'Bioquímica I',          'first_partial' => 72, 'second_partial' => 68, 'final_exam' => 70, 'final_grade' => 70, 'status' => 'approved', 'period' => 'I-2026'],
+    ['user_id' => $userIds['estudiante01@example.com'],    'career_id' => $careerIds['MED-001'], 'subject_name' => 'Histología',            'first_partial' => 55, 'second_partial' => 58, 'final_exam' => 50, 'final_grade' => 54, 'status' => 'failed',   'period' => 'I-2026'],
+    ['user_id' => $userIds['estudiante02@example.com'],   'career_id' => $careerIds['ISI-001'], 'subject_name' => 'Programación III',      'first_partial' => 90, 'second_partial' => 88, 'final_exam' => 92, 'final_grade' => 90, 'status' => 'approved', 'period' => 'I-2026'],
+    ['user_id' => $userIds['estudiante02@example.com'],   'career_id' => $careerIds['ISI-001'], 'subject_name' => 'Base de Datos I',       'first_partial' => 85, 'second_partial' => 82, 'final_exam' => 88, 'final_grade' => 85, 'status' => 'approved', 'period' => 'I-2026'],
+    ['user_id' => $userIds['estudiante02@example.com'],   'career_id' => $careerIds['ISI-001'], 'subject_name' => 'Sistemas Operativos',   'first_partial' => 60, 'second_partial' => 65, 'final_exam' => 58, 'final_grade' => 61, 'status' => 'approved', 'period' => 'I-2026'],
+    ['user_id' => $userIds['estudiante03@example.com'],    'career_id' => $careerIds['ADM-001'], 'subject_name' => 'Fund. Administración',  'first_partial' => 88, 'second_partial' => null, 'final_exam' => null, 'final_grade' => null, 'status' => 'pending', 'period' => 'I-2026'],
+    ['user_id' => $userIds['estudiante03@example.com'],    'career_id' => $careerIds['ADM-001'], 'subject_name' => 'Matemática General',    'first_partial' => 75, 'second_partial' => null, 'final_exam' => null, 'final_grade' => null, 'status' => 'pending', 'period' => 'I-2026'],
+    ['user_id' => $userIds['estudiante04@example.com'],     'career_id' => $careerIds['ICI-001'], 'subject_name' => 'Mecánica de Suelos',    'first_partial' => 78, 'second_partial' => 80, 'final_exam' => 76, 'final_grade' => 78, 'status' => 'approved', 'period' => 'I-2026'],
+    ['user_id' => $userIds['estudiante04@example.com'],     'career_id' => $careerIds['ICI-001'], 'subject_name' => 'Estructuras I',         'first_partial' => 45, 'second_partial' => 52, 'final_exam' => 48, 'final_grade' => 48, 'status' => 'failed',   'period' => 'I-2026'],
+    ['user_id' => $userIds['estudiante04@example.com'],     'career_id' => $careerIds['ICI-001'], 'subject_name' => 'Topografía II',         'first_partial' => 80, 'second_partial' => 77, 'final_exam' => 82, 'final_grade' => 80, 'status' => 'approved', 'period' => 'I-2026'],
+    ['user_id' => $userIds['estudiante05@example.com'],      'career_id' => $careerIds['ENF-001'], 'subject_name' => 'Anatomía Básica',       'first_partial' => 92, 'second_partial' => 90, 'final_exam' => 95, 'final_grade' => 92, 'status' => 'approved', 'period' => 'I-2026'],
+    ['user_id' => $userIds['estudiante05@example.com'],      'career_id' => $careerIds['ENF-001'], 'subject_name' => 'Fundamentos Enf.',      'first_partial' => 88, 'second_partial' => 85, 'final_exam' => 90, 'final_grade' => 88, 'status' => 'approved', 'period' => 'I-2026'],
+    ['user_id' => $userIds['estudiante06@example.com'],    'career_id' => $careerIds['MED-001'], 'subject_name' => 'Farmacología I',        'first_partial' => 65, 'second_partial' => 70, 'final_exam' => 68, 'final_grade' => 68, 'status' => 'approved', 'period' => 'I-2026'],
+    ['user_id' => $userIds['estudiante06@example.com'],    'career_id' => $careerIds['MED-001'], 'subject_name' => 'Patología General',     'first_partial' => 50, 'second_partial' => 48, 'final_exam' => 45, 'final_grade' => 48, 'status' => 'failed',   'period' => 'I-2026'],
+    ['user_id' => $userIds['estudiante06@example.com'],    'career_id' => $careerIds['MED-001'], 'subject_name' => 'Microbiología II',      'first_partial' => 75, 'second_partial' => 72, 'final_exam' => 78, 'final_grade' => 75, 'status' => 'approved', 'period' => 'I-2026'],
+    ['user_id' => $userIds['estudiante07@example.com'], 'career_id' => $careerIds['CON-001'], 'subject_name' => 'Contabilidad II',       'first_partial' => 88, 'second_partial' => 90, 'final_exam' => 85, 'final_grade' => 88, 'status' => 'approved', 'period' => 'I-2026'],
+    ['user_id' => $userIds['estudiante07@example.com'], 'career_id' => $careerIds['CON-001'], 'subject_name' => 'Finanzas I',            'first_partial' => 92, 'second_partial' => 88, 'final_exam' => 94, 'final_grade' => 91, 'status' => 'approved', 'period' => 'I-2026'],
+    ['user_id' => $userIds['estudiante07@example.com'], 'career_id' => $careerIds['CON-001'], 'subject_name' => 'Derecho Mercantil',     'first_partial' => 55, 'second_partial' => 58, 'final_exam' => 52, 'final_grade' => 55, 'status' => 'failed',   'period' => 'I-2026'],
+    ['user_id' => $userIds['estudiante08@example.com'],    'career_id' => $careerIds['ISI-001'], 'subject_name' => 'Programación I',        'first_partial' => 95, 'second_partial' => 92, 'final_exam' => 98, 'final_grade' => 95, 'status' => 'approved', 'period' => 'I-2026'],
+    ['user_id' => $userIds['estudiante08@example.com'],    'career_id' => $careerIds['ISI-001'], 'subject_name' => 'Matemática Discreta',   'first_partial' => 88, 'second_partial' => 85, 'final_exam' => 90, 'final_grade' => 88, 'status' => 'approved', 'period' => 'I-2026'],
+    ['user_id' => $userIds['estudiante09@example.com'],  'career_id' => $careerIds['ARQ-001'], 'subject_name' => 'Diseño Arquitectónico IV','first_partial'=> 82, 'second_partial' => 85, 'final_exam' => 80, 'final_grade' => 82, 'status' => 'approved', 'period' => 'I-2026'],
+    ['user_id' => $userIds['estudiante09@example.com'],  'career_id' => $careerIds['ARQ-001'], 'subject_name' => 'Urbanismo II',           'first_partial' => 45, 'second_partial' => 50, 'final_exam' => 48, 'final_grade' => 48, 'status' => 'failed',   'period' => 'I-2026'],
+    ['user_id' => $userIds['estudiante10@example.com'],   'career_id' => $careerIds['AGR-001'], 'subject_name' => 'Fitotecnia II',          'first_partial' => 78, 'second_partial' => 80, 'final_exam' => 75, 'final_grade' => 78, 'status' => 'approved', 'period' => 'I-2026'],
+    ['user_id' => $userIds['estudiante10@example.com'],   'career_id' => $careerIds['AGR-001'], 'subject_name' => 'Suelos y Fertilización', 'first_partial' => 70, 'second_partial' => 68, 'final_exam' => 72, 'final_grade' => 70, 'status' => 'approved', 'period' => 'I-2026'],
 ];
         foreach ($grades as &$g) { $g['created_at'] = now(); $g['updated_at'] = now(); }
         DB::table('grades')->insert($grades);
 
         $scholarships = [
-            ['user_id' => $userIds['maria@uncpggl.edu.ni'],  'type' => 'academica',       'coverage_percentage' => 50.00, 'status' => 'active', 'start_date' => '2026-01-01', 'end_date' => '2026-12-31', 'description' => 'Beca por excelencia académica.'],
-            ['user_id' => $userIds['carlos@uncpggl.edu.ni'], 'type' => 'socioeconómica',  'coverage_percentage' => 75.00, 'status' => 'active', 'start_date' => '2026-01-01', 'end_date' => '2026-12-31', 'description' => 'Beca socioeconómica.'],
-            ['user_id' => $userIds['jose@uncpggl.edu.ni'],   'type' => 'deportiva',       'coverage_percentage' => 25.00, 'status' => 'active', 'start_date' => '2026-01-01', 'end_date' => '2026-12-31', 'description' => 'Beca por representación en atletismo.'],
+            ['user_id' => $userIds['estudiante01@example.com'],  'type' => 'academica',       'coverage_percentage' => 50.00, 'status' => 'active', 'start_date' => '2026-01-01', 'end_date' => '2026-12-31', 'description' => 'Beca por excelencia académica.'],
+            ['user_id' => $userIds['estudiante02@example.com'], 'type' => 'socioeconómica',  'coverage_percentage' => 75.00, 'status' => 'active', 'start_date' => '2026-01-01', 'end_date' => '2026-12-31', 'description' => 'Beca socioeconómica.'],
+            ['user_id' => $userIds['estudiante04@example.com'],   'type' => 'deportiva',       'coverage_percentage' => 25.00, 'status' => 'active', 'start_date' => '2026-01-01', 'end_date' => '2026-12-31', 'description' => 'Beca por representación en atletismo.'],
         ];
         foreach ($scholarships as &$s) { $s['created_at'] = now(); $s['updated_at'] = now(); }
         DB::table('scholarships')->insert($scholarships);
 
         $tutorings = [
-    ['user_id' => $userIds['maria@uncpggl.edu.ni'],  'subject_name' => 'Histología',       'tutor_name' => 'Dr. Roberto Chavarría', 'scheduled_at' => '2026-06-12 14:00:00', 'status' => 'scheduled', 'meeting_link_or_place' => 'Aula 201',        'cost' => 10.00, 'exam_cost' => 10.00, 'tutoring_paid' => false, 'exam_paid' => false],
-    ['user_id' => $userIds['carlos@uncpggl.edu.ni'], 'subject_name' => 'Base de Datos II', 'tutor_name' => 'Ing. Luis Centeno',     'scheduled_at' => '2026-06-14 10:00:00', 'status' => 'scheduled', 'meeting_link_or_place' => 'Lab. Informática', 'cost' => 10.00, 'exam_cost' => 10.00, 'tutoring_paid' => false, 'exam_paid' => false],
-    ['user_id' => $userIds['jose@uncpggl.edu.ni'],   'subject_name' => 'Estructuras I',    'tutor_name' => 'Ing. Pedro Gutiérrez',  'scheduled_at' => '2026-06-13 15:00:00', 'status' => 'scheduled', 'meeting_link_or_place' => 'Aula 401',        'cost' => 10.00, 'exam_cost' => 10.00, 'tutoring_paid' => false, 'exam_paid' => false],
-    ['user_id' => $userIds['pedro@uncpggl.edu.ni'],  'subject_name' => 'Patología General','tutor_name' => 'Dra. Carmen López',     'scheduled_at' => '2026-06-15 09:00:00', 'status' => 'scheduled', 'meeting_link_or_place' => 'Aula 202',        'cost' => 10.00, 'exam_cost' => 10.00, 'tutoring_paid' => false, 'exam_paid' => false],
-    ['user_id' => $userIds['gabriela@uncpggl.edu.ni'],'subject_name'=> 'Derecho Mercantil','tutor_name' => 'Lic. Rosa Espinoza',    'scheduled_at' => '2026-06-16 14:00:00', 'status' => 'scheduled', 'meeting_link_or_place' => 'Aula 103',        'cost' => 10.00, 'exam_cost' => 10.00, 'tutoring_paid' => false, 'exam_paid' => false],
-    ['user_id' => $userIds['valeria@uncpggl.edu.ni'], 'subject_name'=> 'Urbanismo II',     'tutor_name' => 'Arq. Sandra Potosme',   'scheduled_at' => '2026-06-17 10:00:00', 'status' => 'scheduled', 'meeting_link_or_place' => 'Aula 301',        'cost' => 10.00, 'exam_cost' => 10.00, 'tutoring_paid' => false, 'exam_paid' => false],
+    ['user_id' => $userIds['estudiante01@example.com'],  'subject_name' => 'Histología',       'tutor_name' => 'Dr. Roberto Chavarría', 'scheduled_at' => '2026-06-12 14:00:00', 'status' => 'scheduled', 'meeting_link_or_place' => 'Aula 201',        'cost' => 10.00, 'exam_cost' => 10.00, 'tutoring_paid' => false, 'exam_paid' => false],
+    ['user_id' => $userIds['estudiante02@example.com'], 'subject_name' => 'Base de Datos II', 'tutor_name' => 'Ing. Luis Centeno',     'scheduled_at' => '2026-06-14 10:00:00', 'status' => 'scheduled', 'meeting_link_or_place' => 'Lab. Informática', 'cost' => 10.00, 'exam_cost' => 10.00, 'tutoring_paid' => false, 'exam_paid' => false],
+    ['user_id' => $userIds['estudiante04@example.com'],   'subject_name' => 'Estructuras I',    'tutor_name' => 'Ing. Pedro Gutiérrez',  'scheduled_at' => '2026-06-13 15:00:00', 'status' => 'scheduled', 'meeting_link_or_place' => 'Aula 401',        'cost' => 10.00, 'exam_cost' => 10.00, 'tutoring_paid' => false, 'exam_paid' => false],
+    ['user_id' => $userIds['estudiante06@example.com'],  'subject_name' => 'Patología General','tutor_name' => 'Dra. Carmen López',     'scheduled_at' => '2026-06-15 09:00:00', 'status' => 'scheduled', 'meeting_link_or_place' => 'Aula 202',        'cost' => 10.00, 'exam_cost' => 10.00, 'tutoring_paid' => false, 'exam_paid' => false],
+    ['user_id' => $userIds['estudiante07@example.com'],'subject_name'=> 'Derecho Mercantil','tutor_name' => 'Lic. Rosa Espinoza',    'scheduled_at' => '2026-06-16 14:00:00', 'status' => 'scheduled', 'meeting_link_or_place' => 'Aula 103',        'cost' => 10.00, 'exam_cost' => 10.00, 'tutoring_paid' => false, 'exam_paid' => false],
+    ['user_id' => $userIds['estudiante09@example.com'], 'subject_name'=> 'Urbanismo II',     'tutor_name' => 'Arq. Sandra Potosme',   'scheduled_at' => '2026-06-17 10:00:00', 'status' => 'scheduled', 'meeting_link_or_place' => 'Aula 301',        'cost' => 10.00, 'exam_cost' => 10.00, 'tutoring_paid' => false, 'exam_paid' => false],
 ];
 foreach ($tutorings as &$t) { $t['created_at'] = now(); $t['updated_at'] = now(); }
 DB::table('tutorings')->insert($tutorings);

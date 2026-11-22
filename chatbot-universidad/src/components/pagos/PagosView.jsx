@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
-import { consultarPagos } from "../../services/pagosService";
+import { consultarPagos, consultarRecibo } from "../../services/pagosService";
+import { getToken } from "../../services/authService";
 import { useAuth } from "../../hooks/useAuth";
+import { escapeHtml, printInPopup, renderDocument } from "../../utils/pdfDocument";
 import "./PagosView.css";
 
 const CONCEPT_LABELS = {
@@ -52,6 +54,7 @@ function PagosView({ onBack, onLogin }) {
   const [result, setResult] = useState(null);
   const [filter, setFilter] = useState("todos");
   const [receipt, setReceipt] = useState(null);
+  const [printError, setPrintError] = useState("");
 
   useEffect(() => {
     if (!receipt) return undefined;
@@ -115,6 +118,43 @@ function PagosView({ onBack, onLogin }) {
   }, [ordered, filter]);
 
   const student = result?.student;
+  const fieldsFor = (receipt, student) => [
+    ["Nº de recibo", receipt.receipt_number],
+    ["Estudiante", student?.name],
+    ["Carné", student?.carnet],
+    ["Carrera", student?.career],
+    ["Concepto", CONCEPT_LABELS[receipt.concept] || receipt.concept],
+    ["Descripción", receipt.description],
+    ["Período", receipt.period],
+    ["Método de pago", receipt.payment_method],
+    ["Estado", STATUS_LABELS[receipt.status] || receipt.status],
+    ["Fecha de pago", receipt.paid_at ? formatDate(receipt.paid_at) : "No pagado"],
+    ["Fecha límite", formatDate(receipt.due_date)],
+    ["Referencia", receipt.reference],
+  ];
+  const fields = receipt ? fieldsFor(receipt, student) : [];
+
+  const printReceipt = async () => {
+    const popup = window.open("", "_blank", "width=820,height=960");
+    try {
+      setPrintError("");
+      if (!popup) throw new Error("Permite las ventanas emergentes para imprimir.");
+      const { payment, student: owner } = await consultarRecibo(receipt.id, token);
+      if (getToken() !== token) throw new Error("La sesión ha cambiado.");
+      const title = `Recibo ${payment.receipt_number || payment.id}`;
+      const rows = [...fieldsFor(payment, owner), ["Monto", formatMoney(payment.amount)]]
+        .map(([label, value]) => `<tr><th scope="row">${escapeHtml(label)}</th><td>${escapeHtml(value || "—")}</td></tr>`).join("");
+      printInPopup(renderDocument({
+        title,
+        eyebrow: "Universidad Nacional Comandante Padre Gaspar García Laviana",
+        body: `<table>${rows}</table>`,
+        footerLeft: "Documento de demostración",
+      }), title, popup);
+    } catch (err) {
+      popup?.close();
+      setPrintError(err.message);
+    }
+  };
   const summary = result?.summary;
   const initials = (student?.name || "?")
     .split(" ")
@@ -238,7 +278,7 @@ function PagosView({ onBack, onLogin }) {
                   key={p.id}
                   type="button"
                   className="pago-card"
-                  onClick={() => setReceipt(p)}
+                   onClick={() => { setPrintError(""); setReceipt(p); }}
                 >
                   <span className={`pago-status-dot ${p.status}`} aria-hidden="true" />
 
@@ -299,62 +339,24 @@ function PagosView({ onBack, onLogin }) {
               </div>
 
               <dl className="pago-modal-fields">
-                <div>
-                  <dt>Nº de recibo</dt>
-                  <dd>{receipt.receipt_number}</dd>
-                </div>
-                <div>
-                  <dt>Estudiante</dt>
-                  <dd>{student?.name || "—"}</dd>
-                </div>
-                <div>
-                  <dt>Carné</dt>
-                  <dd>{student?.carnet || "—"}</dd>
-                </div>
-                <div>
-                  <dt>Carrera</dt>
-                  <dd>{student?.career || "—"}</dd>
-                </div>
-                <div>
-                  <dt>Concepto</dt>
-                  <dd>{CONCEPT_LABELS[receipt.concept] || receipt.concept}</dd>
-                </div>
-                <div>
-                  <dt>Período</dt>
-                  <dd>{receipt.period || "—"}</dd>
-                </div>
-                <div>
-                  <dt>Método de pago</dt>
-                  <dd>{receipt.payment_method || "—"}</dd>
-                </div>
-                <div>
-                  <dt>Estado</dt>
-                  <dd>
-                    <span className={`pago-badge ${receipt.status}`}>
-                      {STATUS_LABELS[receipt.status] || receipt.status}
-                    </span>
-                  </dd>
-                </div>
-                <div>
-                  <dt>Fecha de pago</dt>
-                  <dd>
-                    {receipt.paid_at ? formatDate(receipt.paid_at) : "No pagado"}
-                  </dd>
-                </div>
-                <div>
-                  <dt>Fecha límite</dt>
-                  <dd>{formatDate(receipt.due_date) || "—"}</dd>
-                </div>
-                <div>
-                  <dt>Referencia</dt>
-                  <dd>{receipt.reference || "—"}</dd>
-                </div>
+                {fields.map(([label, value]) => (
+                  <div key={label}>
+                    <dt>{label}</dt>
+                    <dd>{label === "Estado"
+                      ? <span className={`pago-badge ${receipt.status}`}>{value}</span>
+                      : value || "—"}</dd>
+                  </div>
+                ))}
               </dl>
 
               <div className="pago-modal-total">
                 <span>Monto</span>
                 <strong>{formatMoney(receipt.amount)}</strong>
               </div>
+              <button type="button" className="pago-print-btn" onClick={printReceipt}>
+                Imprimir o guardar como PDF
+              </button>
+              {printError && <p role="alert">{printError}</p>}
             </div>
           </div>
         </div>

@@ -257,11 +257,11 @@ def main() -> None:
                 page.goto("http://127.0.0.1:5178/", wait_until="networkidle")
                 page.get_by_role("button", name="Iniciar sesión").click()
                 dialog = page.get_by_role("dialog")
-                local_id = dialog.get_by_role("textbox", name="Carné o correo")
-                for identifier in ("2024-CON-3189", "estudiante07@example.com"):
+                local_id = dialog.get_by_role("textbox", name="Número de carné")
+                for identifier in ("2024-CON-3189", "2025-ISI-6473"):
                     local_id.fill(identifier)
                     assert local_id.evaluate("(input) => input.checkValidity()"), identifier
-                dialog.get_by_role("textbox", name="Carné o correo").fill(CARNET)
+                dialog.get_by_role("textbox", name="Número de carné").fill(CARNET)
                 dialog.get_by_role("button", name="Ingresar", exact=True).click()
                 dialog.locator(".qr-status").wait_for(timeout=15000)
 

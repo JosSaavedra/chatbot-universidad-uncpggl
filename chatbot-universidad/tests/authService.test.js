@@ -36,11 +36,11 @@ afterEach(() => {
   calls = [];
 });
 
-test("el acceso local siempre envía carné y contraseña", async () => {
+test("el acceso siempre envía carné normalizado y contraseña", async () => {
   globalThis.fetch = fakeFetch({ errors: { carnet: ["Las credenciales no son correctas."] } }, 422);
 
   await assert.rejects(
-    loginByCarnet("2024-CON-3189", "ClaveIndividual#2026"),
+    loginByCarnet("  2024-CON-3189  ", "ClaveIndividual#2026"),
     /Las credenciales no son correctas\./,
   );
 
@@ -53,15 +53,15 @@ test("el acceso local siempre envía carné y contraseña", async () => {
   });
 });
 
-test("el acceso institucional envía correo y contraseña", async () => {
-  globalThis.fetch = fakeFetch({ errors: { carnet: ["Las credenciales no son correctas."] } }, 422);
+test("rechaza un correo electrónico como identificador", async () => {
+  globalThis.fetch = fakeFetch({}, 200);
 
-  await assert.rejects(loginByCarnet("estudiante01@example.com", "ClaveIndividual#2026"));
+  await assert.rejects(
+    loginByCarnet("estudiante01@example.com", "ClaveIndividual#2026"),
+    /número de carné, no un correo/,
+  );
 
-  assert.deepEqual(JSON.parse(calls[0].options.body), {
-    email: "estudiante01@example.com",
-    password: "ClaveIndividual#2026",
-  });
+  assert.equal(calls.length, 0);
 });
 
 test("la respuesta de verificación por correo deja la sesión sin autenticar", async () => {

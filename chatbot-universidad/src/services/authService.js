@@ -97,8 +97,8 @@ export const getStudent = () => snapshot.student;
 export const isAuthenticated = () => Boolean(snapshot.token);
 
 /**
- * Inicia sesión con carné (demostración) o correo (cuenta institucional),
- * siempre acompañado de la contraseña individual.
+ * Inicia sesión con el número de carné y la contraseña individual.
+ * El correo no es un identificador de acceso: sólo se usa para la aprobación.
  *
  * La contraseña sólo existe en memoria durante la petición: nunca se guarda
  * en localStorage/sessionStorage ni se incluye en mensajes de error.
@@ -107,21 +107,24 @@ export const loginByCarnet = async (identifier, password) => {
   const normalizedIdentifier = String(identifier ?? "").trim();
 
   if (!normalizedIdentifier) {
-    throw new Error("Ingresa tu carné o correo para iniciar sesión.");
+    throw new Error("Ingresa tu número de carné para iniciar sesión.");
+  }
+
+  if (normalizedIdentifier.includes("@")) {
+    throw new Error("Ingresa tu número de carné, no un correo electrónico.");
   }
 
   if (typeof password !== "string" || password.length === 0) {
     throw new Error("Ingresa tu contraseña para iniciar sesión.");
   }
 
-  const identifierField = normalizedIdentifier.includes("@") ? "email" : "carnet";
   const response = await fetch(`${API_URL}/login`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Accept: "application/json",
     },
-    body: JSON.stringify({ [identifierField]: normalizedIdentifier, password }),
+    body: JSON.stringify({ carnet: normalizedIdentifier, password }),
   });
 
   const payload = await response.json().catch(() => ({}));
@@ -133,7 +136,6 @@ export const loginByCarnet = async (identifier, password) => {
 
     const message =
       payload?.errors?.carnet?.[0] ||
-      payload?.errors?.email?.[0] ||
       payload?.message ||
       `No se pudo iniciar sesión (Error ${response.status}).`;
     throw new Error(message);

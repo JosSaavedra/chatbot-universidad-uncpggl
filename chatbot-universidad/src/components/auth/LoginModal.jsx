@@ -210,7 +210,12 @@ function LoginModal({ onClose, onSuccess }) {
     const value = carnet.trim();
 
     if (!value) {
-      setError("Ingresa el código de tu carné para iniciar sesión.");
+      setError("Ingresa tu número de carné para iniciar sesión.");
+      return;
+    }
+
+    if (value.includes("@")) {
+      setError("Ingresa tu número de carné, no un correo electrónico.");
       return;
     }
 
@@ -255,8 +260,8 @@ function LoginModal({ onClose, onSuccess }) {
     : !mode
       ? "Consultando el modo de acceso…"
       : demo
-        ? "Usa tu carné actualizado o correo de demostración y tu contraseña. Si tu cuenta usa Google, deja la contraseña vacía y pulsa Ingresar; si usa correo, ingresa tu contraseña."
-        : "Ingresa con tu carné o correo y contraseña. Si tu cuenta usa Google, deja la contraseña vacía y pulsa Ingresar; si usa correo, ingresa tu contraseña.";
+        ? "Usa tu número de carné y tu contraseña. Si tu cuenta usa Google, deja la contraseña vacía y pulsa Ingresar; si usa verificación por correo, ingresa tu contraseña."
+        : "Ingresa tu número de carné y contraseña. Si tu cuenta usa Google, deja la contraseña vacía y pulsa Ingresar; si usa verificación por correo, ingresa tu contraseña.";
 
   const statusLabel = remoteStatus === "google_authenticated"
     ? "Identidad verificada · esperando tu confirmación"
@@ -292,9 +297,9 @@ function LoginModal({ onClose, onSuccess }) {
             required
             value={carnet}
             onChange={(event) => setCarnet(event.target.value)}
-            placeholder="Carné o correo"
-            maxLength={255}
-            aria-label="Carné o correo"
+            placeholder="Número de carné"
+            maxLength={40}
+            aria-label="Número de carné"
             autoComplete="off"
             spellCheck="false"
             autoFocus
